@@ -36,6 +36,23 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Netlify Deployment
+
+This repository includes a `netlify.toml` configured for Angular production builds.
+
+- Build command: `npm run build`
+- Publish directory: `dist/angular-cast-webapp/browser`
+- Node version: `22`
+
+For a manual deploy check, run:
+
+```bash
+npm install
+npm run build
+```
+
+Then deploy the repository in Netlify. SPA fallback routing is already configured.
+
 ## Running unit tests
 
 To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
