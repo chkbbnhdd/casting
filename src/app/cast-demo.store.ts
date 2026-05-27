@@ -2,9 +2,11 @@ import { Injectable, computed, signal } from '@angular/core';
 import {
   CastMediaItem,
   CastSenderClient,
+  GoogleCastLauncherDiagnostics,
   HybridCastTransport,
   SequentialQueueStrategy,
   createMediaItem,
+  getGoogleCastLauncherDiagnostics,
   initializeGoogleCastLauncher,
 } from '../sdk';
 
@@ -59,6 +61,7 @@ export class CastDemoStore {
   });
   readonly queueCount = computed(() => this.queueItems().length);
   readonly sampleVideos = sampleVideos;
+  readonly launcherDiagnostics = signal<GoogleCastLauncherDiagnostics>(getGoogleCastLauncherDiagnostics());
 
   readonly draft = signal<VideoDraft>({
     title: 'Big Buck Bunny',
@@ -70,19 +73,36 @@ export class CastDemoStore {
 
   constructor() {
     this.client.subscribe((nextState) => this.state.set(nextState));
-    void initializeGoogleCastLauncher();
+    this.refreshLauncherDiagnostics();
+    void initializeGoogleCastLauncher().finally(() => this.refreshLauncherDiagnostics());
+  }
+
+  private refreshLauncherDiagnostics(): void {
+    this.launcherDiagnostics.set(getGoogleCastLauncherDiagnostics());
   }
 
   async connect(): Promise<void> {
-    await this.client.connect();
+    try {
+      await this.client.connect();
+    } finally {
+      this.refreshLauncherDiagnostics();
+    }
   }
 
   async sendQueue(): Promise<void> {
-    await this.client.sendQueue();
+    try {
+      await this.client.sendQueue();
+    } finally {
+      this.refreshLauncherDiagnostics();
+    }
   }
 
   async playSelected(): Promise<void> {
-    await this.client.playSelected();
+    try {
+      await this.client.playSelected();
+    } finally {
+      this.refreshLauncherDiagnostics();
+    }
   }
 
   async pause(): Promise<void> {

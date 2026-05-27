@@ -27,6 +27,36 @@
           </div>
         </div>
 
+        <div class="cast-debug" role="status" aria-live="polite">
+          <p class="section-label">Cast diagnostics</p>
+          <div class="cast-debug-grid">
+            <div>
+              <span>Origin</span>
+              <strong>{{ launcherDiagnostics().currentOrigin }}</strong>
+            </div>
+            <div>
+              <span>Configured receiver ID</span>
+              <strong>{{ launcherDiagnostics().configuredReceiverApplicationId }}</strong>
+            </div>
+            <div>
+              <span>SDK default receiver ID</span>
+              <strong>{{ launcherDiagnostics().sdkDefaultReceiverApplicationId ?? 'n/a' }}</strong>
+            </div>
+            <div>
+              <span>Cast framework</span>
+              <strong>{{ launcherDiagnostics().hasCastFramework ? 'Available' : 'Missing' }}</strong>
+            </div>
+            <div>
+              <span>Cast context</span>
+              <strong>{{ launcherDiagnostics().hasCastContext ? 'Ready' : 'Not ready' }}</strong>
+            </div>
+            <div>
+              <span>Sender script</span>
+              <strong>{{ launcherDiagnostics().isCastScriptLoaded ? 'Loaded' : 'Loading' }}</strong>
+            </div>
+          </div>
+        </div>
+
         <div class="action-row">
           <google-cast-launcher class="cast-launcher" title="Cast to a device"></google-cast-launcher>
           <button type="button" class="primary" (click)="store.connect()">{{ state().uiOverrides.routeButtonLabel }}</button>

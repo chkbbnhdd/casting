@@ -29,6 +29,17 @@ const DEFAULT_MEDIA_RECEIVER_APP_ID = '9C801F80';
 const ORIGIN_SCOPED_AUTO_JOIN_POLICY = 'origin_scoped';
 let initializePromise: Promise<boolean> | null = null;
 
+export type GoogleCastLauncherDiagnostics = {
+  currentOrigin: string;
+  configuredReceiverApplicationId: string;
+  sdkDefaultReceiverApplicationId: string | null;
+  hasCastFramework: boolean;
+  hasCastContext: boolean;
+  hasApiAvailableCallback: boolean;
+  hasCastScriptTag: boolean;
+  isCastScriptLoaded: boolean;
+};
+
 function getWindowOrNull(): CastFrameworkWindow | null {
   if (typeof window === 'undefined') {
     return null;
@@ -82,7 +93,7 @@ function loadCastScriptOnce(url: string): Promise<void> {
 function applyDefaultCastOptions(castWindow: CastFrameworkWindow): boolean {
   const castContext = castWindow.cast?.framework?.CastContext.getInstance();
   const defaultReceiverId =
-    castWindow.chrome?.cast?.media?.DEFAULT_MEDIA_RECEIVER_APP_ID ?? DEFAULT_MEDIA_RECEIVER_APP_ID;
+    DEFAULT_MEDIA_RECEIVER_APP_ID ?? castWindow.chrome?.cast?.media?.DEFAULT_MEDIA_RECEIVER_APP_ID;
   const originScopedPolicy = castWindow.chrome?.cast?.AutoJoinPolicy?.ORIGIN_SCOPED ?? ORIGIN_SCOPED_AUTO_JOIN_POLICY;
 
   if (!castContext) {
@@ -144,4 +155,36 @@ export function initializeGoogleCastLauncher(): Promise<boolean> {
   });
 
   return initializePromise;
+}
+
+export function getGoogleCastLauncherDiagnostics(): GoogleCastLauncherDiagnostics {
+  const castWindow = getWindowOrNull();
+  if (!castWindow || typeof document === 'undefined') {
+    return {
+      currentOrigin: 'n/a',
+      configuredReceiverApplicationId: DEFAULT_MEDIA_RECEIVER_APP_ID,
+      sdkDefaultReceiverApplicationId: null,
+      hasCastFramework: false,
+      hasCastContext: false,
+      hasApiAvailableCallback: false,
+      hasCastScriptTag: false,
+      isCastScriptLoaded: false,
+    };
+  }
+
+  const castScript =
+    document.querySelector<HTMLScriptElement>('script[data-cast-sdk="true"]') ??
+    document.querySelector<HTMLScriptElement>('script[src*="cast_sender.js"]');
+  const hasCastContext = Boolean(castWindow.cast?.framework?.CastContext.getInstance());
+
+  return {
+    currentOrigin: castWindow.location.origin,
+    configuredReceiverApplicationId: DEFAULT_MEDIA_RECEIVER_APP_ID,
+    sdkDefaultReceiverApplicationId: castWindow.chrome?.cast?.media?.DEFAULT_MEDIA_RECEIVER_APP_ID ?? null,
+    hasCastFramework: Boolean(castWindow.cast?.framework),
+    hasCastContext,
+    hasApiAvailableCallback: typeof castWindow.__onGCastApiAvailable === 'function',
+    hasCastScriptTag: Boolean(castScript),
+    isCastScriptLoaded: castScript?.dataset['loaded'] === 'true',
+  };
 }
