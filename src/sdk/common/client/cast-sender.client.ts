@@ -18,6 +18,20 @@ function formatCastError(error: unknown): string {
     return `${error.message}${causeMessage}`;
   }
 
+  if (typeof error === 'object' && error !== null) {
+    const maybeCastError = error as { code?: unknown; description?: unknown; details?: unknown; reason?: unknown };
+    const details = [
+      typeof maybeCastError.code === 'string' ? `code=${maybeCastError.code}` : null,
+      typeof maybeCastError.reason === 'string' ? `reason=${maybeCastError.reason}` : null,
+      typeof maybeCastError.description === 'string' ? maybeCastError.description : null,
+      typeof maybeCastError.details === 'string' ? maybeCastError.details : null,
+    ].filter((value): value is string => Boolean(value));
+
+    if (details.length > 0) {
+      return details.join(' | ');
+    }
+  }
+
   if (typeof error === 'string') {
     return error;
   }
@@ -107,14 +121,19 @@ export class CastSenderClient {
 
     try {
       await this.transport.connect?.(this.state.queue);
-      this.emit({
+      const connectedState: CastSenderState = {
         ...this.state,
         connected: true,
         sdkReady: true,
         transportName: this.transport.name,
         statusMessage: `Connected through ${this.transport.name}.`,
         lastError: null,
-      });
+      };
+      this.emit(connectedState);
+
+      if (connectedState.queue.items.length > 0) {
+        await this.loadQueue();
+      }
     } catch (error) {
       const message = formatCastError(error);
       this.emit({
