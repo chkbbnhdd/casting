@@ -1,0 +1,187 @@
+<main class="shell">
+      <section class="hero panel">
+        <div class="eyebrow">Common cast sender core</div>
+        <h1>{{ title }}</h1>
+        <p class="lead">
+          A platform-neutral queue engine sits underneath this Angular shell so the same sender logic can be reused in web, iOS, and Android code bases.
+        </p>
+
+        <div class="highlights">
+          @for (item of highlights; track item) {
+            <span class="highlight">{{ item }}</span>
+          }
+        </div>
+
+        <div class="hero-metrics">
+          <div>
+            <strong>{{ queueCount() }}</strong>
+            <span>queued videos</span>
+          </div>
+          <div>
+            <strong>{{ state().transportName }}</strong>
+            <span>active transport</span>
+          </div>
+          <div>
+            <strong>{{ state().connected ? 'Connected' : 'Idle' }}</strong>
+            <span>receiver state</span>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <google-cast-launcher class="cast-launcher" title="Cast to a device"></google-cast-launcher>
+          <button type="button" class="primary" (click)="store.connect()">{{ state().uiOverrides.routeButtonLabel }}</button>
+          <button type="button" class="secondary" (click)="store.sendQueue()">{{ state().uiOverrides.primaryActionLabel }}</button>
+          <button type="button" class="ghost" (click)="store.clearQueue()">{{ state().uiOverrides.secondaryActionLabel }}</button>
+        </div>
+
+        <div class="empty-state">
+          <h3>How to use this demo</h3>
+          <p>
+            1. Add videos to the queue from the sample cards or the form. 2. Click the Cast icon and choose your Chromecast or Cast-enabled TV.
+            3. Click Cast to screen to connect, then Send queue to push the playlist. 4. Use Play selected, Next, Previous, Pause, and Stop to control playback.
+          </p>
+        </div>
+      </section>
+
+      <section class="layout">
+        <article class="panel composer">
+          <header>
+            <div>
+              <p class="section-label">Queue composer</p>
+              <h2>Build a multi-video queue</h2>
+            </div>
+            <button type="button" class="ghost" (click)="store.addAllSamples()">Add all samples</button>
+          </header>
+
+          <div class="composer-grid">
+            <label>
+              <span>Title</span>
+              <input
+                type="text"
+                [ngModel]="draft().title"
+                (ngModelChange)="onDraftChange('title', $event)"
+                placeholder="Video title"
+              />
+            </label>
+
+            <label>
+              <span>Source URL</span>
+              <input
+                type="url"
+                [ngModel]="draft().url"
+                (ngModelChange)="onDraftChange('url', $event)"
+                placeholder="https://example.com/video.mp4"
+              />
+            </label>
+
+            <label>
+              <span>MIME type</span>
+              <input
+                type="text"
+                [ngModel]="draft().mimeType"
+                (ngModelChange)="onDraftChange('mimeType', $event)"
+                placeholder="video/mp4"
+              />
+            </label>
+
+            <label>
+              <span>Subtitle</span>
+              <input
+                type="text"
+                [ngModel]="draft().subtitle"
+                (ngModelChange)="onDraftChange('subtitle', $event)"
+                placeholder="Optional subtitle"
+              />
+            </label>
+
+            <label class="span-two">
+              <span>Poster URL</span>
+              <input
+                type="url"
+                [ngModel]="draft().posterUrl"
+                (ngModelChange)="onDraftChange('posterUrl', $event)"
+                placeholder="https://example.com/poster.jpg"
+              />
+            </label>
+          </div>
+
+          <div class="action-row compact">
+            <button type="button" class="primary" (click)="store.addDraftVideo()">Add to queue</button>
+            <button type="button" class="secondary" (click)="store.playSelected()">Play selected</button>
+            <button type="button" class="ghost" (click)="store.pause()">Pause</button>
+            <button type="button" class="ghost" (click)="store.stop()">Stop</button>
+          </div>
+
+          <div class="sample-grid">
+            @for (sample of sampleVideos; track sample.id) {
+              <button type="button" class="sample-card" (click)="store.addSampleVideo($index)">
+                <img [src]="sample.posterUrl" [alt]="sample.title" />
+                <div>
+                  <strong>{{ sample.title }}</strong>
+                  <span>{{ sample.subtitle }}</span>
+                </div>
+              </button>
+            }
+          </div>
+        </article>
+
+        <article class="panel queue">
+          <header>
+            <div>
+              <p class="section-label">{{ state().uiOverrides.queueTitle }}</p>
+              <h2>{{ state().uiOverrides.nowPlayingTitle }}</h2>
+            </div>
+            <div class="status-chip" [class.connected]="state().connected">{{ state().statusMessage }}</div>
+          </header>
+
+          @if (state().lastError) {
+            <div class="error-banner" role="alert">
+              <strong>Cast error</strong>
+              <p>{{ state().lastError }}</p>
+            </div>
+          }
+
+          @if (activeItem(); as nowPlaying) {
+            <div class="now-playing">
+              <img [src]="nowPlaying.posterUrl" [alt]="nowPlaying.title" />
+              <div>
+                <p>{{ nowPlaying.subtitle }}</p>
+                <h3>{{ nowPlaying.title }}</h3>
+                <small>{{ nowPlaying.url }}</small>
+              </div>
+            </div>
+          } @else {
+            <div class="empty-state">
+              <h3>{{ state().uiOverrides.emptyQueueTitle }}</h3>
+              <p>{{ state().uiOverrides.emptyQueueSubtitle }}</p>
+            </div>
+          }
+
+          <div class="queue-list">
+            @for (item of queueItems(); track item.id; let index = $index) {
+              <div class="queue-item" [class.active]="store.isActive(item.id)">
+                <button type="button" class="queue-thumb" (click)="store.selectItem(item.id)">
+                  <img [src]="item.posterUrl" [alt]="item.title" />
+                </button>
+                <div class="queue-meta">
+                  <span class="index">#{{ index + 1 }}</span>
+                  <strong>{{ item.title }}</strong>
+                  <small>{{ item.subtitle }}</small>
+                </div>
+                <div class="queue-actions">
+                  <button type="button" (click)="store.moveItemUp(item.id)">↑</button>
+                  <button type="button" (click)="store.moveItemDown(item.id)">↓</button>
+                  <button type="button" (click)="store.removeItem(item.id)">Remove</button>
+                </div>
+              </div>
+            }
+          </div>
+
+          <footer class="footer-actions">
+            <button type="button" class="ghost" (click)="store.previousItem()">Previous</button>
+            <button type="button" class="ghost" (click)="store.nextItem()">Next</button>
+            <button type="button" class="ghost" (click)="store.sendQueue()">Sync queue</button>
+          </footer>
+        </article>
+      </section>
+    </main>
