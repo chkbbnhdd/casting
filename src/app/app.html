@@ -39,8 +39,16 @@
               <strong>{{ launcherDiagnostics().configuredReceiverApplicationId }}</strong>
             </div>
             <div>
+              <span>Receiver mode</span>
+              <strong>{{ launcherDiagnostics().receiverPreference }}</strong>
+            </div>
+            <div>
               <span>SDK default receiver ID</span>
               <strong>{{ launcherDiagnostics().sdkDefaultReceiverApplicationId ?? 'n/a' }}</strong>
+            </div>
+            <div>
+              <span>Effective receiver ID</span>
+              <strong>{{ launcherDiagnostics().effectiveReceiverApplicationId }}</strong>
             </div>
             <div>
               <span>Cast framework</span>
@@ -62,14 +70,6 @@
           <button type="button" class="primary" (click)="store.connect()">{{ state().uiOverrides.routeButtonLabel }}</button>
           <button type="button" class="secondary" (click)="store.sendQueue()">{{ state().uiOverrides.primaryActionLabel }}</button>
           <button type="button" class="ghost" (click)="store.clearQueue()">{{ state().uiOverrides.secondaryActionLabel }}</button>
-        </div>
-
-        <div class="empty-state">
-          <h3>How to use this demo</h3>
-          <p>
-            1. Add videos to the queue from the sample cards or the form. 2. Click the Cast icon and choose your Chromecast or Cast-enabled TV.
-            3. Click Cast to screen to connect, then Send queue to push the playlist. 4. Use Play selected, Next, Previous, Pause, and Stop to control playback.
-          </p>
         </div>
       </section>
 

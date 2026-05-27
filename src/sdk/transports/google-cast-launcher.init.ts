@@ -33,12 +33,30 @@ export type GoogleCastLauncherDiagnostics = {
   currentOrigin: string;
   configuredReceiverApplicationId: string;
   sdkDefaultReceiverApplicationId: string | null;
+  effectiveReceiverApplicationId: string;
+  receiverPreference: 'custom' | 'default';
   hasCastFramework: boolean;
   hasCastContext: boolean;
   hasApiAvailableCallback: boolean;
   hasCastScriptTag: boolean;
   isCastScriptLoaded: boolean;
 };
+
+function getReceiverPreference(castWindow: CastFrameworkWindow): 'custom' | 'default' {
+  const requestedPreference = new URLSearchParams(castWindow.location.search).get('castReceiver');
+  return requestedPreference === 'default' ? 'default' : 'custom';
+}
+
+function resolveReceiverApplicationId(castWindow: CastFrameworkWindow): string {
+  const sdkDefaultReceiverId = castWindow.chrome?.cast?.media?.DEFAULT_MEDIA_RECEIVER_APP_ID;
+  const preference = getReceiverPreference(castWindow);
+
+  if (preference === 'default') {
+    return sdkDefaultReceiverId ?? 'CC1AD845';
+  }
+
+  return DEFAULT_MEDIA_RECEIVER_APP_ID;
+}
 
 function getWindowOrNull(): CastFrameworkWindow | null {
   if (typeof window === 'undefined') {
@@ -92,8 +110,7 @@ function loadCastScriptOnce(url: string): Promise<void> {
 
 function applyDefaultCastOptions(castWindow: CastFrameworkWindow): boolean {
   const castContext = castWindow.cast?.framework?.CastContext.getInstance();
-  const defaultReceiverId =
-    DEFAULT_MEDIA_RECEIVER_APP_ID ?? castWindow.chrome?.cast?.media?.DEFAULT_MEDIA_RECEIVER_APP_ID;
+  const defaultReceiverId = resolveReceiverApplicationId(castWindow);
   const originScopedPolicy = castWindow.chrome?.cast?.AutoJoinPolicy?.ORIGIN_SCOPED ?? ORIGIN_SCOPED_AUTO_JOIN_POLICY;
 
   if (!castContext) {
@@ -164,6 +181,8 @@ export function getGoogleCastLauncherDiagnostics(): GoogleCastLauncherDiagnostic
       currentOrigin: 'n/a',
       configuredReceiverApplicationId: DEFAULT_MEDIA_RECEIVER_APP_ID,
       sdkDefaultReceiverApplicationId: null,
+      effectiveReceiverApplicationId: DEFAULT_MEDIA_RECEIVER_APP_ID,
+      receiverPreference: 'custom',
       hasCastFramework: false,
       hasCastContext: false,
       hasApiAvailableCallback: false,
@@ -176,11 +195,14 @@ export function getGoogleCastLauncherDiagnostics(): GoogleCastLauncherDiagnostic
     document.querySelector<HTMLScriptElement>('script[data-cast-sdk="true"]') ??
     document.querySelector<HTMLScriptElement>('script[src*="cast_sender.js"]');
   const hasCastContext = Boolean(castWindow.cast?.framework?.CastContext.getInstance());
+  const receiverPreference = getReceiverPreference(castWindow);
 
   return {
     currentOrigin: castWindow.location.origin,
     configuredReceiverApplicationId: DEFAULT_MEDIA_RECEIVER_APP_ID,
     sdkDefaultReceiverApplicationId: castWindow.chrome?.cast?.media?.DEFAULT_MEDIA_RECEIVER_APP_ID ?? null,
+    effectiveReceiverApplicationId: resolveReceiverApplicationId(castWindow),
+    receiverPreference,
     hasCastFramework: Boolean(castWindow.cast?.framework),
     hasCastContext,
     hasApiAvailableCallback: typeof castWindow.__onGCastApiAvailable === 'function',
