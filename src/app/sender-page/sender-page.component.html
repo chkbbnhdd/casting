@@ -80,6 +80,7 @@
           <google-cast-launcher class="cast-launcher" title="Cast to a device"></google-cast-launcher>
           <button type="button" class="primary" (click)="store.connect()">{{ state().uiOverrides.routeButtonLabel }}</button>
           <button type="button" class="secondary" (click)="store.sendQueue()">{{ state().uiOverrides.primaryActionLabel }}</button>
+          <button type="button" class="ghost" (click)="openReceiverPreview()">Open receiver page</button>
           <button type="button" class="ghost" (click)="store.clearQueue()">{{ state().uiOverrides.secondaryActionLabel }}</button>
         </div>
       </section>

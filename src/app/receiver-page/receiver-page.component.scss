@@ -24,9 +24,12 @@ cast-media-player {
 
 .receiver-shell {
   position: fixed;
-  top: 2rem;
-  left: 2rem;
-  width: min(28rem, calc(100vw - 4rem));
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(28rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
   display: grid;
   gap: 1rem;
   z-index: 2;
@@ -136,11 +139,8 @@ cast-media-player {
 
 @media (max-width: 900px) {
   .receiver-shell {
-    top: auto;
-    right: 1rem;
-    bottom: 1rem;
-    left: 1rem;
-    width: auto;
+    width: min(28rem, calc(100vw - 1.5rem));
+    max-height: calc(100vh - 1.5rem);
   }
 
   .brand-panel h1 {

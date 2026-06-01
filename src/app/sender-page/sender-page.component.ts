@@ -29,4 +29,12 @@ export class SenderPageComponent {
   protected onDraftChange(field: keyof VideoDraft, value: string): void {
     this.store.updateDraft({ [field]: value } as Partial<VideoDraft>);
   }
+
+  protected openReceiverPreview(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.open('/receiver', '_blank', 'noopener,noreferrer');
+  }
 }
