@@ -2,16 +2,41 @@
   display: block;
   min-height: 100vh;
   color: #f7f4ee;
-  background:
-    radial-gradient(circle at top left, rgba(255, 138, 61, 0.24), transparent 34%),
-    radial-gradient(circle at top right, rgba(101, 171, 255, 0.18), transparent 28%),
-    linear-gradient(160deg, #111318 0%, #171b22 52%, #0d1117 100%);
+  background: #000;
 }
 
 .shell {
   width: min(1200px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 2rem 0 3rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  display: block;
+}
+
+.brand-title {
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: #f7f4ee;
 }
 
 .panel {
@@ -478,10 +503,6 @@ button {
   display: block;
   min-height: 100vh;
   color: #f7f4ee;
-  background:
-    radial-gradient(circle at top left, rgba(255, 138, 61, 0.24), transparent 34%),
-    radial-gradient(circle at top right, rgba(101, 171, 255, 0.18), transparent 28%),
-    linear-gradient(160deg, #111318 0%, #171b22 52%, #0d1117 100%);
 }
 
 .shell {

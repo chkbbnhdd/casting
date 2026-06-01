@@ -11,7 +11,7 @@ import { CastDemoStore, VideoDraft } from './cast-demo.store';
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class App {
-  protected readonly title = 'Cast queue lab';
+  protected readonly title = 'DR Cast Tester';
   protected readonly store = inject(CastDemoStore);
   protected readonly queueItems = this.store.queueItems;
   protected readonly activeItem = this.store.activeItem;
