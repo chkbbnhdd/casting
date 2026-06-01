@@ -19,6 +19,11 @@ export interface CastQueueState {
   lastUpdatedIso: string;
 }
 
+export interface CastReceiverQueuePayload {
+  queue: CastQueueState;
+  sentAtIso: string;
+}
+
 export interface CastUiOverrides {
   routeButtonLabel: string;
   queueTitle: string;

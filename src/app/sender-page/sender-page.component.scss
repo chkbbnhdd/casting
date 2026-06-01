@@ -1,0 +1,173 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  color: #f7f4ee;
+  background: #000;
+}
+
+.shell {
+  width: min(1200px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  display: block;
+}
+
+.brand-title {
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: #f7f4ee;
+}
+
+.panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  background: rgba(13, 17, 23, 0.8);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(18px);
+}
+
+.hero {
+  padding: 2rem;
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow,
+.section-label {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  color: #f5a36f;
+  margin-bottom: 0.75rem;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(2.6rem, 7vw, 5rem);
+  line-height: 0.95;
+  max-width: 10ch;
+}
+
+.lead {
+  color: rgba(247, 244, 238, 0.78);
+  max-width: 60ch;
+  margin-top: 1rem;
+  font-size: 1.02rem;
+}
+
+.highlights,
+.hero-metrics,
+.action-row,
+.queue-actions,
+.footer-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.highlights {
+  margin-top: 1.25rem;
+}
+
+.highlight,
+.status-chip {
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f0ece4;
+}
+
+.hero-metrics {
+  margin-top: 1.5rem;
+}
+
+.hero-metrics > div {
+  min-width: 140px;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hero-metrics strong {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 0.2rem;
+}
+
+.hero-metrics span {
+  color: rgba(247, 244, 238, 0.66);
+  font-size: 0.9rem;
+}
+
+.cast-debug {
+  margin-top: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cast-debug .section-label {
+  margin-bottom: 0.55rem;
+}
+
+.cast-debug-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.cast-debug-grid > div {
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cast-debug-grid span {
+  display: block;
+  font-size: 0.78rem;
+  color: rgba(247, 244, 238, 0.66);
+}
+
+.cast-debug-grid strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.92rem;
+  word-break: break-all;
+}
+
+.cast-debug-note {
+  margin-top: 0.85rem;
+  color: rgba(247, 244, 238, 0.72);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}

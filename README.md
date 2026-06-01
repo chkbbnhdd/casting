@@ -53,6 +53,23 @@ npm run build
 
 Then deploy the repository in Netlify. SPA fallback routing is already configured.
 
+## Custom Receiver
+
+This repo now includes a minimal CAF Web Receiver as a dedicated Angular route at `/receiver`.
+
+- Receiver page URL after deploy: `/receiver`
+- Local preview URL during `ng serve`: `http://localhost:4200/receiver`
+- Sender override query parameter: `castAppId`
+
+To use the custom receiver end to end:
+
+1. Host the app over HTTPS.
+2. Register the deployed `/receiver` URL in the Google Cast Developer Console as a Custom Web Receiver.
+3. Open the sender with `?castAppId=<YOUR_RECEIVER_APP_ID>`.
+4. Use `?castReceiver=default` if you want to force the stock Default Media Receiver instead.
+
+The sender now includes the full queue payload in Cast `customData`, and the routed receiver component uses that to show queue state and the selected item.
+
 ## Running unit tests
 
 To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:

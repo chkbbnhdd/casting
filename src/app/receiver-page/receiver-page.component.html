@@ -1,0 +1,56 @@
+<cast-media-player></cast-media-player>
+
+<aside class="receiver-shell" aria-live="polite">
+  @if (activeItem(); as currentItem) {
+    <div class="receiver-panel brand-panel">
+      <p class="eyebrow">DR Cast Receiver</p>
+      <h1>{{ currentItem.title || 'Receiver active' }}</h1>
+      <p>{{ currentItem.subtitle || currentItem.url || 'Casting in progress' }}</p>
+    </div>
+  } @else {
+    <div class="receiver-panel brand-panel">
+      <p class="eyebrow">DR Cast Receiver</p>
+      <h1>Ready for queue playback</h1>
+      <p>Waiting for a sender to load media.</p>
+    </div>
+  }
+
+  <div class="receiver-panel stats-panel">
+    <div>
+      <span>Status</span>
+      <strong>{{ state().status }}</strong>
+    </div>
+    <div>
+      <span>Active item</span>
+      <strong>{{ activeIndexLabel() }}</strong>
+    </div>
+  </div>
+
+  @if (errorMessage(); as errorMessage) {
+    <div class="receiver-panel error-panel" role="alert">
+      <p class="eyebrow">Receiver error</p>
+      <strong>{{ errorMessage }}</strong>
+    </div>
+  }
+
+  <div class="receiver-panel queue-panel">
+    <div class="queue-header">
+      <p class="eyebrow">Queue</p>
+      <strong>{{ queueCountLabel() }}</strong>
+    </div>
+
+    @if (state().items.length > 0) {
+      <ol class="queue-list">
+        @for (item of state().items; track item.id; let index = $index) {
+          <li class="queue-item" [class.active]="item.id === state().activeItemId">
+            <span>Item {{ index + 1 }}</span>
+            <strong>{{ item.title || 'Untitled item' }}</strong>
+            <small>{{ item.subtitle || item.url || 'No subtitle' }}</small>
+          </li>
+        }
+      </ol>
+    } @else {
+      <p class="queue-empty">Queue details will appear after the first sender load.</p>
+    }
+  </div>
+</aside>

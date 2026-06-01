@@ -1,5 +1,5 @@
 import { CastMediaItem, CastQueueState, CastTransport, CastUiOverrides, defaultCastUiOverrides } from '../common/types';
-import { cloneQueueState, mergeUiOverrides } from '../common/utils';
+import { cloneQueueState, createReceiverQueuePayload, mergeUiOverrides } from '../common/utils';
 import { initializeGoogleCastLauncher } from './google-cast-launcher.init';
 
 type GoogleCastMediaNamespace = {
@@ -110,7 +110,6 @@ function createMediaInfo(item: CastMediaItem, chromeCastWindow: ChromeCastWindow
 
   mediaInfo.metadata = metadata;
   mediaInfo.streamType = mediaNamespace.StreamType?.BUFFERED ?? 'BUFFERED';
-  mediaInfo.customData = item.customData ?? undefined;
   return mediaInfo;
 }
 
@@ -126,9 +125,16 @@ function createLoadRequest(item: CastMediaItem, state: CastQueueState, chromeCas
   }
 
   const request = new mediaNamespace.LoadRequest(mediaInfo);
+  const receiverPayload = createReceiverQueuePayload(state);
   request.autoplay = true;
   request.customData = {
-    queueIds: state.items.map((queueItem) => queueItem.id),
+    ...receiverPayload,
+    queueIds: receiverPayload.queue.items.map((queueItem) => queueItem.id),
+  };
+  (mediaInfo as { customData?: Record<string, unknown> }).customData = {
+    ...(item.customData ?? {}),
+    ...receiverPayload,
+    selectedItemId: item.id,
   };
   return request;
 }

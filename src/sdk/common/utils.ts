@@ -1,4 +1,4 @@
-import { CastMediaItem, CastQueueState, CastUiOverrides } from './types';
+import { CastMediaItem, CastQueueState, CastReceiverQueuePayload, CastUiOverrides } from './types';
 
 export function cloneMediaItem(item: CastMediaItem): CastMediaItem {
   return {
@@ -81,5 +81,12 @@ export function rebuildState(
     activeItemId,
     status,
     lastUpdatedIso: nowIso(),
+  };
+}
+
+export function createReceiverQueuePayload(state: CastQueueState): CastReceiverQueuePayload {
+  return {
+    queue: cloneQueueState(state),
+    sentAtIso: nowIso(),
   };
 }
