@@ -1,5 +1,5 @@
 import { CastMediaItem, CastQueueState, CastTransport, CastUiOverrides, defaultCastUiOverrides } from '../common/types';
-import { cloneQueueState, createReceiverQueuePayload, mergeUiOverrides } from '../common/utils';
+import { cloneQueueState, createReceiverQueuePayload, createSerializableQueuePayload, mergeUiOverrides } from '../common/utils';
 import { initializeGoogleCastLauncher } from './google-cast-launcher.init';
 
 type GoogleCastMediaNamespace = {
@@ -155,15 +155,16 @@ function createLoadRequest(item: CastMediaItem, state: CastQueueState, chromeCas
   }
 
   const request = new mediaNamespace.LoadRequest(mediaInfo);
-  const receiverPayload = createReceiverQueuePayload(state);
+  const serializablePayload = createSerializableQueuePayload(state);
+  const queueData = serializablePayload['queue'] as { items: Array<{ id: string }> };
   request.autoplay = true;
   request.customData = {
-    ...receiverPayload,
-    queueIds: receiverPayload.queue.items.map((queueItem) => queueItem.id),
+    ...serializablePayload,
+    queueIds: queueData.items.map((queueItem) => queueItem.id),
   };
   (mediaInfo as { customData?: Record<string, unknown> }).customData = {
     ...(item.customData ?? {}),
-    ...receiverPayload,
+    ...serializablePayload,
     selectedItemId: item.id,
     selectedItemTitle: item.title,
   };

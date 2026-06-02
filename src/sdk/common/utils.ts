@@ -90,3 +90,26 @@ export function createReceiverQueuePayload(state: CastQueueState): CastReceiverQ
     sentAtIso: nowIso(),
   };
 }
+
+export function createSerializableQueuePayload(state: CastQueueState): Record<string, unknown> {
+  // Create a JSON-serializable queue payload for transmission (no Image objects or complex types)
+  return {
+    queue: {
+      items: state.items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        url: item.url,
+        mimeType: item.mimeType,
+        posterUrl: item.posterUrl,
+        subtitle: item.subtitle,
+        description: item.description,
+        durationSeconds: item.durationSeconds,
+        customData: item.customData,
+      })),
+      activeItemId: state.activeItemId,
+      status: state.status,
+      lastUpdatedIso: state.lastUpdatedIso,
+    },
+    sentAtIso: nowIso(),
+  };
+}
