@@ -84,8 +84,8 @@
             aria-label="Cast to a device"
             title="Cast to a device"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M1 18h2c0-4.42 3.58-8 8-8V8C4.48 8 1 11.48 1 15zm0 4h2c0-2.21 1.79-4 4-4v-2C2.69 16 1 17.69 1 20zm0-8h2c0-6.63 5.37-12 12-12v2C6.92 4 1 9.92 1 16zm20-8H3c-1.1 0-2 .9-2 2v4h2V8h18v8h-9v2h9c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"/>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M1 18h2c0-4.42 3.58-8 8-8V8C4.48 8 1 11.48 1 15zm0 4h2c0-2.21 1.79-4 4-4v-2C2.69 16 1 17.69 1 20zm0-8h2c0-6.63 5.37-12 12-12v2C6.92 4 1 9.92 1 16zm20-8H3c-1.1 0-2 .9-2 2v4h2V8h18v8h-9v2h9c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"/>
             </svg>
           </button>
           <button type="button" class="secondary" (click)="store.sendQueue()">{{ state().uiOverrides.primaryActionLabel }}</button>
