@@ -182,6 +182,20 @@
             </div>
           }
 
+          @if (logs().length > 0) {
+            <div class="logs-panel">
+              <div class="logs-header">
+                <strong>Connection logs</strong>
+                <button type="button" class="ghost small" (click)="clearLogs()">Clear</button>
+              </div>
+              <div class="logs-list">
+                @for (log of logs(); track $index) {
+                  <div class="log-entry">{{ log }}</div>
+                }
+              </div>
+            </div>
+          }
+
           @if (activeItem(); as nowPlaying) {
             <div class="now-playing">
               <img [src]="nowPlaying.posterUrl" [alt]="nowPlaying.title" />

@@ -17,6 +17,7 @@ export class SenderPageComponent {
   protected readonly activeItem = this.store.activeItem;
   protected readonly queueCount = this.store.queueCount;
   protected readonly state = this.store.state;
+  protected readonly logs = this.store.logs;
   protected readonly launcherDiagnostics = this.store.launcherDiagnostics;
   protected readonly draft = this.store.draft;
   protected readonly sampleVideos = this.store.sampleVideos;
@@ -36,5 +37,9 @@ export class SenderPageComponent {
     }
 
     window.open('/receiver', '_blank', 'noopener,noreferrer');
+  }
+
+  protected clearLogs(): void {
+    this.store.clearLogs();
   }
 }

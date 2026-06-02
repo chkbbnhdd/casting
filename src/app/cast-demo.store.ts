@@ -54,6 +54,7 @@ export class CastDemoStore {
   );
 
   readonly state = signal(this.client.getState());
+  readonly logs = signal<string[]>([]);
   readonly queueItems = computed(() => this.state().queue.items);
   readonly activeItem = computed(() => {
     const currentState = this.state();
@@ -72,7 +73,10 @@ export class CastDemoStore {
   });
 
   constructor() {
-    this.client.subscribe((nextState) => this.state.set(nextState));
+    this.client.subscribe((nextState) => {
+      this.state.set(nextState);
+      this.logs.set(this.client.getLogs());
+    });
     this.refreshLauncherDiagnostics();
     void initializeGoogleCastLauncher().finally(() => this.refreshLauncherDiagnostics());
   }
@@ -186,5 +190,9 @@ export class CastDemoStore {
 
   isActive(itemId: string): boolean {
     return this.state().queue.activeItemId === itemId;
+  }
+
+  clearLogs(): void {
+    this.logs.set([]);
   }
 }

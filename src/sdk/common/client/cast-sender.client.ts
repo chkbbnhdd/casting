@@ -42,6 +42,7 @@ function formatCastError(error: unknown): string {
 export class CastSenderClient {
   private readonly listeners = new Set<CastStateListener>();
   private state: CastSenderState;
+  private readonly logs: string[] = [];
 
   constructor(
     private readonly transport: CastTransport,
@@ -62,6 +63,18 @@ export class CastSenderClient {
     };
 
     this.transport.setUiOverrides?.(this.state.uiOverrides);
+    this.log(`Initialized CastSenderClient with transport: ${transport.name}`);
+  }
+
+  private log(message: string): void {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    this.logs.push(logEntry);
+    console.log(logEntry);
+  }
+
+  getLogs(): string[] {
+    return [...this.logs];
   }
 
   subscribe(listener: CastStateListener): () => void {
@@ -103,6 +116,7 @@ export class CastSenderClient {
 
   async connect(): Promise<void> {
     if (!this.transport.isSupported) {
+      this.log('Transport not supported');
       this.emit({
         ...this.state,
         connected: false,
@@ -113,6 +127,7 @@ export class CastSenderClient {
       return;
     }
 
+    this.log(`Starting connection with ${this.transport.name}`);
     this.emit({
       ...this.state,
       statusMessage: `Connecting through ${this.transport.name}...`,
@@ -120,7 +135,10 @@ export class CastSenderClient {
     });
 
     try {
+      this.log(`Calling transport.connect() with ${this.state.queue.items.length} queue items`);
       await this.transport.connect?.(this.state.queue);
+      this.log('Transport connection successful');
+      
       const connectedState: CastSenderState = {
         ...this.state,
         connected: true,
@@ -132,10 +150,12 @@ export class CastSenderClient {
       this.emit(connectedState);
 
       if (connectedState.queue.items.length > 0) {
+        this.log(`Loading queue with ${connectedState.queue.items.length} items`);
         await this.loadQueue();
       }
     } catch (error) {
       const message = formatCastError(error);
+      this.log(`Connection failed: ${message}`);
       this.emit({
         ...this.state,
         connected: false,
