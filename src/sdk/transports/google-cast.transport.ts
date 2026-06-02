@@ -96,8 +96,9 @@ async function obtainCastSession(castContext: ReturnType<GoogleCastFramework['Ca
 
   try {
     await castContext.requestSession();
-  } catch {
-    return null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to request Cast session: ${message}`);
   }
 
   let session = castContext.getCurrentSession();
@@ -114,7 +115,7 @@ async function obtainCastSession(castContext: ReturnType<GoogleCastFramework['Ca
     }
   }
 
-  return null;
+  throw new Error('No active Cast session was created after requestSession().');
 }
 
 function createMediaInfo(item: CastMediaItem, chromeCastWindow: ChromeCastWindow): unknown {
