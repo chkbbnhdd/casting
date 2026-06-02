@@ -30,51 +30,6 @@
     </div>
   </div>
 
-  <div class="receiver-panel diagnostics-panel">
-    <div class="queue-header">
-      <p class="eyebrow">CAF diagnostics</p>
-      <strong>Receiver readiness</strong>
-    </div>
-    <div class="diagnostics-grid">
-      <div>
-        <span>window.cast</span>
-        <strong>{{ diagnostics().hasCast ? 'yes' : 'no' }}</strong>
-      </div>
-      <div>
-        <span>cast.framework</span>
-        <strong>{{ diagnostics().hasFramework ? 'yes' : 'no' }}</strong>
-      </div>
-      <div>
-        <span>CastReceiverContext</span>
-        <strong>{{ diagnostics().hasReceiverContext ? 'yes' : 'no' }}</strong>
-      </div>
-      <div>
-        <span>Player manager</span>
-        <strong>{{ diagnostics().hasPlayerManager ? 'yes' : 'no' }}</strong>
-      </div>
-      <div>
-        <span>PLAYER_STATE event</span>
-        <strong>{{ diagnostics().hasPlayerStateEventType ? 'yes' : 'no' }}</strong>
-      </div>
-      <div>
-        <span>MEDIA_INFORMATION_CHANGED</span>
-        <strong>{{ diagnostics().hasMediaInformationChangedEventType ? 'yes' : 'no' }}</strong>
-      </div>
-      <div>
-        <span>LOAD message</span>
-        <strong>{{ diagnostics().hasLoadMessageType ? 'yes' : 'no' }}</strong>
-      </div>
-      <div>
-        <span>SDK script loaded</span>
-        <strong>{{ diagnostics().hasCastSdkScriptTag ? 'yes' : 'no' }}</strong>
-      </div>
-      <div>
-        <span>API callback</span>
-        <strong>{{ diagnostics().hasApiAvailableCallback ? 'yes' : 'no' }}</strong>
-      </div>
-    </div>
-  </div>
-
   @if (errorMessage(); as errorMessage) {
     <div class="receiver-panel error-panel" role="alert">
       <p class="eyebrow">Receiver error</p>
