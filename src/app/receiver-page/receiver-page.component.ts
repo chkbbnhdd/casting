@@ -5,6 +5,7 @@ import { CastMediaItem, CastReceiverQueuePayload } from '../../sdk';
 declare global {
   interface Window {
     cast?: any;
+    __onGCastApiAvailable?: (isAvailable: boolean) => void;
   }
 }
 
@@ -32,9 +33,33 @@ function loadReceiverFramework(): Promise<void> {
   }
 
   receiverScriptPromise = new Promise<void>((resolve, reject) => {
+    if (window.cast?.framework?.CastReceiverContext) {
+      resolve();
+      return;
+    }
+
+    const previousCallback = window.__onGCastApiAvailable;
+    window.__onGCastApiAvailable = (isAvailable: boolean) => {
+      previousCallback?.(isAvailable);
+      if (isAvailable && window.cast?.framework?.CastReceiverContext) {
+        resolve();
+      } else if (!isAvailable) {
+        reject(new Error('Cast receiver framework is unavailable.'));
+      }
+    };
+
     const existingScript = document.querySelector<HTMLScriptElement>('script[data-cast-receiver-sdk="true"]');
     if (existingScript) {
-      existingScript.addEventListener('load', () => resolve(), { once: true });
+      if (window.cast?.framework?.CastReceiverContext) {
+        resolve();
+        return;
+      }
+
+      existingScript.addEventListener('load', () => {
+        if (window.cast?.framework?.CastReceiverContext) {
+          resolve();
+        }
+      }, { once: true });
       existingScript.addEventListener('error', () => reject(new Error('Failed to load the Cast receiver framework.')), {
         once: true,
       });
@@ -46,7 +71,11 @@ function loadReceiverFramework(): Promise<void> {
     script.defer = true;
     script.src = CAST_RECEIVER_SCRIPT_URL;
     script.dataset['castReceiverSdk'] = 'true';
-    script.addEventListener('load', () => resolve(), { once: true });
+    script.addEventListener('load', () => {
+      if (window.cast?.framework?.CastReceiverContext) {
+        resolve();
+      }
+    }, { once: true });
     script.addEventListener('error', () => reject(new Error('Failed to load the Cast receiver framework.')), { once: true });
     document.head.appendChild(script);
   });
@@ -166,6 +195,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       disableIdleTimeout: true,
       statusText: 'Ready to receive queue casts',
     });
+    this.state.update((currentState) => ({
+      ...currentState,
+      status: 'Ready',
+    }));
     receiverStarted = true;
   }
 
