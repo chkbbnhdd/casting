@@ -77,7 +77,15 @@
         </div>
 
         <div class="action-row">
-          <button type="button" class="cast-launcher primary" (click)="store.connect()">Cast to a device</button>
+          <button
+            type="button"
+            class="cast-launcher primary"
+            (click)="store.connect()"
+            aria-label="Cast to a device"
+            title="Cast to a device"
+          >
+            <img src="/dr_logo.svg" alt="DR logo" class="cast-button-logo" />
+          </button>
           <button type="button" class="secondary" (click)="store.sendQueue()">{{ state().uiOverrides.primaryActionLabel }}</button>
           <button type="button" class="ghost" (click)="openReceiverPreview()">Open receiver page</button>
           <button type="button" class="ghost" (click)="store.clearQueue()">{{ state().uiOverrides.secondaryActionLabel }}</button>

@@ -299,6 +299,14 @@ button {
   height: 24px;
 }
 
+.cast-launcher img,
+.cast-button-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+}
+
 .action-row .cast-launcher,
 .action-row google-cast-launcher.cast-launcher {
   display: inline-flex !important;
