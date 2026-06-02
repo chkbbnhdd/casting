@@ -165,6 +165,7 @@ function createLoadRequest(item: CastMediaItem, state: CastQueueState, chromeCas
     ...(item.customData ?? {}),
     ...receiverPayload,
     selectedItemId: item.id,
+    selectedItemTitle: item.title,
   };
   return request;
 }

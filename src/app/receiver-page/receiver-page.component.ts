@@ -187,6 +187,29 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
           status: 'Loading',
         });
         this.errorMessage.set(null);
+      } else if (loadRequestData?.media?.customData?.selectedItemTitle) {
+        // Fallback when full queue payload isn't provided: use selectedItemTitle
+        const selTitle = loadRequestData.media.customData.selectedItemTitle as string;
+        const selId = loadRequestData.media.customData.selectedItemId ?? loadRequestData.media?.contentId ?? `item-${Date.now()}`;
+        const selUrl = loadRequestData.media?.contentId ?? loadRequestData.media?.contentUrl ?? null;
+        const syntheticItem: CastMediaItem = {
+          id: selId,
+          title: selTitle,
+          url: selUrl ?? undefined,
+          mimeType: loadRequestData.media?.contentType ?? undefined,
+          posterUrl: undefined,
+          subtitle: undefined,
+          description: undefined,
+          durationSeconds: undefined,
+          customData: loadRequestData.media.customData ?? undefined,
+        };
+
+        this.state.set({
+          items: [syntheticItem],
+          activeItemId: selId,
+          status: 'Loading',
+        });
+        this.errorMessage.set(null);
       }
 
       return loadRequestData;
