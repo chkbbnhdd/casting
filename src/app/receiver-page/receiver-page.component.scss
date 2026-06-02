@@ -1,198 +1,52 @@
 :host {
   display: block;
-  min-height: 100vh;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at top left, rgba(255, 138, 61, 0.24), transparent 30%),
-    linear-gradient(135deg, #080d18 0%, #101b31 45%, #1b2440 100%);
-  color: #f7f3eb;
-  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
 }
 
-cast-media-player {
-  --theme-hue: 24;
-  --theme-primary-color: #ff8a3d;
-  --theme-secondary-color: #ffffff;
-  --progress-color: #ff8a3d;
-  --splash-image: linear-gradient(135deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.4));
-  position: fixed;
-  inset: 0;
-  height: 100vh;
-  width: 100vw;
-  background: transparent;
-}
-
-.receiver-shell {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(28rem, calc(100vw - 2rem));
-  max-height: calc(100vh - 2rem);
-  overflow: auto;
-  display: grid;
-  gap: 1rem;
-  z-index: 2;
-}
-
-.receiver-logo {
-  position: absolute;
-  inset: 0;
+.receiver-root {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
-  z-index: 0;
+  height: 100vh;
+  gap: 1.25rem;
+  padding: 2rem;
+  background: #0f1720;
+  color: #f7f4ee;
 }
 
-.receiver-logo img {
-  width: clamp(14rem, 40vw, 22rem);
-  opacity: 0.16;
-  filter: drop-shadow(0 0 3rem rgba(0, 0, 0, 0.35));
+.logo img {
+  width: 160px;
+  height: auto;
+  opacity: 0.95;
 }
 
-.receiver-panel {
-  position: relative;
-  backdrop-filter: blur(24px);
-  background: rgba(11, 18, 34, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 1.25rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
-}
-
-.brand-panel,
-.stats-panel,
-.queue-panel,
-.error-panel {
-  padding: 1.25rem;
-}
-
-.eyebrow {
-  margin: 0 0 0.35rem;
-  color: #ff8a3d;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+.info .eyebrow {
   text-transform: uppercase;
-}
-
-.brand-panel h1,
-.brand-panel p,
-.queue-empty,
-.error-panel strong {
+  letter-spacing: 0.12em;
+  opacity: 0.85;
   margin: 0;
 }
 
-.brand-panel h1 {
-  font-size: 2rem;
-  line-height: 1.05;
+.info h1 {
+  margin: 0.35rem 0 0.1rem 0;
+  font-size: 1.6rem;
 }
 
-.brand-panel p:last-child,
-.stats-panel span,
-.queue-header strong,
-.queue-item small,
-.queue-empty {
-  color: rgba(247, 243, 235, 0.72);
+#subtitle {
+  margin: 0;
+  opacity: 0.8;
 }
 
-.brand-panel p:last-child {
-  margin-top: 0.65rem;
-}
-
-.stats-panel {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.diagnostics-panel {
-  padding: 1.25rem;
-}
-
-.diagnostics-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-  margin-top: 1rem;
-}
-
-.diagnostics-grid div {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.75rem 0.85rem;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 0.95rem;
-}
-
-.diagnostics-grid span {
-  color: rgba(247, 243, 235, 0.72);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.diagnostics-grid strong {
-  font-size: 0.98rem;
-  display: block;
-  margin-top: 0.15rem;
-}
-
-.stats-panel strong,
-.queue-item strong {
-  display: block;
-  margin-top: 0.3rem;
-  font-size: 1.05rem;
-}
-
-.error-panel {
-  background: rgba(71, 17, 18, 0.78);
-}
-
-.queue-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.queue-list {
-  list-style: none;
-  margin: 1rem 0 0;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.queue-item {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.85rem 1rem;
-  border-radius: 0.95rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid transparent;
-}
-
-.queue-item.active {
-  background: rgba(255, 138, 61, 0.2);
-  border-color: rgba(255, 138, 61, 0.4);
-}
-
-.queue-item span {
-  color: #ff8a3d;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-@media (max-width: 900px) {
-  .receiver-shell {
-    width: min(28rem, calc(100vw - 1.5rem));
-    max-height: calc(100vh - 1.5rem);
-  }
-
-  .brand-panel h1 {
-    font-size: 1.5rem;
-  }
+.diagnostics pre {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  max-width: 640px;
+  width: 100%;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  color: #cfe3ff;
+  font-family: monospace;
+  font-size: 0.9rem;
+  overflow: auto;
+  max-height: 120px;
 }

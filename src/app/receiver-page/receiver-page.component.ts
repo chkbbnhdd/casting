@@ -1,6 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, CUSTOM_ELEMENTS_SCHEMA, OnDestroy, OnInit, computed, signal } from '@angular/core';
-import { CastMediaItem, CastReceiverQueuePayload } from '../../sdk';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, OnDestroy, OnInit, signal } from '@angular/core';
 
 declare global {
   interface Window {
@@ -10,26 +9,6 @@ declare global {
 }
 
 const CAST_RECEIVER_SCRIPT_URL = 'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js';
-let receiverScriptPromise: Promise<void> | null = null;
-let receiverStarted = false;
-
-type ReceiverScreenState = {
-  items: CastMediaItem[];
-  activeItemId: string | null;
-  status: string;
-};
-
-type ReceiverDiagnostics = {
-  hasCast: boolean;
-  hasFramework: boolean;
-  hasReceiverContext: boolean;
-  hasPlayerManager: boolean;
-  hasPlayerStateEventType: boolean;
-  hasMediaInformationChangedEventType: boolean;
-  hasLoadMessageType: boolean;
-  hasCastSdkScriptTag: boolean;
-  hasApiAvailableCallback: boolean;
-};
 
 function loadReceiverFramework(): Promise<void> {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -40,16 +19,7 @@ function loadReceiverFramework(): Promise<void> {
     return Promise.resolve();
   }
 
-  if (receiverScriptPromise) {
-    return receiverScriptPromise;
-  }
-
-  receiverScriptPromise = new Promise<void>((resolve, reject) => {
-    if (window.cast?.framework?.CastReceiverContext) {
-      resolve();
-      return;
-    }
-
+  return new Promise<void>((resolve, reject) => {
     const previousCallback = window.__onGCastApiAvailable;
     window.__onGCastApiAvailable = (isAvailable: boolean) => {
       previousCallback?.(isAvailable);
@@ -60,21 +30,13 @@ function loadReceiverFramework(): Promise<void> {
       }
     };
 
-    const existingScript = document.querySelector<HTMLScriptElement>('script[data-cast-receiver-sdk="true"]');
-    if (existingScript) {
+    const existing = document.querySelector<HTMLScriptElement>('script[src*="cast_receiver_framework.js"]');
+    if (existing) {
       if (window.cast?.framework?.CastReceiverContext) {
         resolve();
-        return;
       }
-
-      existingScript.addEventListener('load', () => {
-        if (window.cast?.framework?.CastReceiverContext) {
-          resolve();
-        }
-      }, { once: true });
-      existingScript.addEventListener('error', () => reject(new Error('Failed to load the Cast receiver framework.')), {
-        once: true,
-      });
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Failed to load Cast receiver framework')), { once: true });
       return;
     }
 
@@ -82,17 +44,10 @@ function loadReceiverFramework(): Promise<void> {
     script.async = true;
     script.defer = true;
     script.src = CAST_RECEIVER_SCRIPT_URL;
-    script.dataset['castReceiverSdk'] = 'true';
-    script.addEventListener('load', () => {
-      if (window.cast?.framework?.CastReceiverContext) {
-        resolve();
-      }
-    }, { once: true });
-    script.addEventListener('error', () => reject(new Error('Failed to load the Cast receiver framework.')), { once: true });
+    script.addEventListener('load', () => resolve(), { once: true });
+    script.addEventListener('error', () => reject(new Error('Failed to load Cast receiver framework')), { once: true });
     document.head.appendChild(script);
   });
-
-  return receiverScriptPromise;
 }
 
 @Component({
@@ -103,194 +58,71 @@ function loadReceiverFramework(): Promise<void> {
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class ReceiverPageComponent implements OnInit, OnDestroy {
-  protected readonly state = signal<ReceiverScreenState>({
-    items: [],
-    activeItemId: null,
-    status: 'Idle',
-  });
-  protected readonly diagnostics = signal<ReceiverDiagnostics>({
-    hasCast: false,
-    hasFramework: false,
-    hasReceiverContext: false,
-    hasPlayerManager: false,
-    hasPlayerStateEventType: false,
-    hasMediaInformationChangedEventType: false,
-    hasLoadMessageType: false,
-    hasCastSdkScriptTag: false,
-    hasApiAvailableCallback: false,
-  });
-  protected readonly errorMessage = signal<string | null>(null);
-  protected readonly queueCountLabel = computed(() => {
-    const count = this.state().items.length;
-    return `${count} ${count === 1 ? 'item' : 'items'}`;
-  });
-  protected readonly activeIndexLabel = computed(() => {
-    const currentState = this.state();
-    const activeIndex = currentState.items.findIndex((item) => item.id === currentState.activeItemId);
-    return activeIndex >= 0 ? `${activeIndex + 1} / ${currentState.items.length}` : `0 / ${currentState.items.length}`;
-  });
-  protected readonly activeItem = computed(() => {
-    const currentState = this.state();
-    return currentState.items.find((item) => item.id === currentState.activeItemId) ?? currentState.items[0] ?? null;
-  });
-
-  private readonly teardownCallbacks: Array<() => void> = [];
+  protected readonly title = signal('Waiting for content');
+  protected readonly subtitle = signal('Idle');
+  protected readonly logs = signal<string[]>([]);
 
   async ngOnInit(): Promise<void> {
-    this.refreshDiagnostics();
-
+    this.pushLog('Receiver booting');
     try {
       await loadReceiverFramework();
-      this.refreshDiagnostics();
+      this.pushLog('CAF framework loaded');
       this.initializeReceiver();
-    } catch (error) {
-      this.refreshDiagnostics();
-      this.errorMessage.set(error instanceof Error ? error.message : 'Receiver initialization failed.');
+    } catch (err: any) {
+      this.pushLog('Receiver initialization failed: ' + (err?.message ?? String(err)));
     }
   }
 
   ngOnDestroy(): void {
-    for (const teardown of this.teardownCallbacks) {
-      teardown();
-    }
+    // nothing special to teardown
+  }
 
-    this.teardownCallbacks.length = 0;
+  private pushLog(message: string): void {
+    const entry = `[${new Date().toLocaleTimeString()}] ${message}`;
+    this.logs.update((current) => [entry, ...current].slice(0, 200));
+    console.log(message);
   }
 
   private initializeReceiver(): void {
-    if (receiverStarted) {
-      this.state.update((currentState) => ({
-        ...currentState,
-        status: currentState.status || 'Ready',
-      }));
-      return;
+    try {
+      const context = window.cast.framework.CastReceiverContext.getInstance();
+      const playerManager = context.getPlayerManager();
+      const MessageType = window.cast.framework.messages.MessageType;
+
+      playerManager.setMessageInterceptor(MessageType.LOAD, (loadRequestData: any) => {
+        this.pushLog('Received LOAD message');
+
+        try {
+          const payload = loadRequestData?.customData?.queue ?? loadRequestData?.media?.customData?.queue ?? null;
+          if (payload && payload.queue) {
+            const selectedId = payload.selectedItemId ?? payload.queue?.activeItemId ?? payload.queue.items?.[0]?.id ?? null;
+            const selectedItem = (payload.queue.items || []).find((i: any) => i.id === selectedId) || payload.queue.items?.[0];
+            if (selectedItem) {
+              this.title.set(selectedItem.title || 'Untitled');
+              this.subtitle.set(selectedItem.subtitle || selectedItem.url || '');
+              this.pushLog('Showing queue item: ' + (selectedItem.title || selectedItem.id));
+            }
+          } else if (loadRequestData?.media?.customData?.selectedItemTitle) {
+            const t = loadRequestData.media.customData.selectedItemTitle;
+            this.title.set(t || 'Untitled');
+            this.subtitle.set(loadRequestData.media?.contentId || '');
+            this.pushLog('Showing media.customData.selectedItemTitle: ' + t);
+          } else if (loadRequestData?.media) {
+            this.title.set(loadRequestData.media?.metadata?.title || 'Playing media');
+            this.subtitle.set(loadRequestData.media?.metadata?.subtitle || loadRequestData.media?.contentId || '');
+            this.pushLog('Showing media.metadata title');
+          }
+        } catch (e: any) {
+          this.pushLog('Error processing LOAD message: ' + (e?.message ?? String(e)));
+        }
+
+        return loadRequestData;
+      });
+
+      context.start();
+      this.pushLog('Receiver context started');
+    } catch (e: any) {
+      this.pushLog('Receiver initialize error: ' + (e?.message ?? String(e)));
     }
-
-    const context = window.cast?.framework?.CastReceiverContext?.getInstance?.();
-    const playerManager = context?.getPlayerManager?.();
-    const playerStateEventType = window.cast?.framework?.events?.EventType?.PLAYER_STATE;
-    const mediaInformationChangedEventType = window.cast?.framework?.events?.EventType?.MEDIA_INFORMATION_CHANGED;
-    const loadMessageType = window.cast?.framework?.messages?.MessageType?.LOAD;
-
-    if (!context || !playerManager || !playerStateEventType || !mediaInformationChangedEventType || !loadMessageType) {
-      throw new Error('Cast receiver framework is available, but the expected CAF APIs are missing.');
-    }
-
-    playerManager.setMessageInterceptor(loadMessageType, (loadRequestData: any) => {
-      const payload = this.getQueuePayload(loadRequestData);
-      if (payload?.queue) {
-        const nextItems = Array.isArray(payload.queue.items) ? payload.queue.items : [];
-        const nextActiveId = payload.selectedItemId || loadRequestData.media?.customData?.selectedItemId || payload.queue.activeItemId || null;
-        this.state.set({
-          items: nextItems,
-          activeItemId: nextActiveId ?? nextItems[0]?.id ?? null,
-          status: 'Loading',
-        });
-        this.errorMessage.set(null);
-      } else if (loadRequestData?.media?.customData?.selectedItemTitle) {
-        // Fallback when full queue payload isn't provided: use selectedItemTitle
-        const selTitle = loadRequestData.media.customData.selectedItemTitle as string;
-        const selId = loadRequestData.media.customData.selectedItemId ?? loadRequestData.media?.contentId ?? `item-${Date.now()}`;
-        const selUrl = loadRequestData.media?.contentId ?? loadRequestData.media?.contentUrl ?? null;
-        const syntheticItem: CastMediaItem = {
-          id: selId,
-          title: selTitle,
-          url: selUrl ?? undefined,
-          mimeType: loadRequestData.media?.contentType ?? undefined,
-          posterUrl: undefined,
-          subtitle: undefined,
-          description: undefined,
-          durationSeconds: undefined,
-          customData: loadRequestData.media.customData ?? undefined,
-        };
-
-        this.state.set({
-          items: [syntheticItem],
-          activeItemId: selId,
-          status: 'Loading',
-        });
-        this.errorMessage.set(null);
-      }
-
-      return loadRequestData;
-    });
-
-    const playerStateListener = (event: { newState?: string }) => {
-      this.state.update((currentState) => ({
-        ...currentState,
-        status: event.newState || currentState.status,
-      }));
-    };
-
-    const mediaInformationChangedListener = () => {
-      const media = playerManager.getMediaInformation?.();
-      const selectedItemId = media?.customData?.selectedItemId;
-      if (!selectedItemId) {
-        return;
-      }
-
-      this.state.update((currentState) => ({
-        ...currentState,
-        activeItemId: selectedItemId,
-      }));
-    };
-
-    playerManager.addEventListener(playerStateEventType, playerStateListener);
-    playerManager.addEventListener(mediaInformationChangedEventType, mediaInformationChangedListener);
-
-    this.teardownCallbacks.push(() => playerManager.removeEventListener?.(playerStateEventType, playerStateListener));
-    this.teardownCallbacks.push(() => playerManager.removeEventListener?.(mediaInformationChangedEventType, mediaInformationChangedListener));
-
-    context.start({
-      disableIdleTimeout: true,
-      statusText: 'Ready to receive queue casts',
-    });
-    this.state.update((currentState) => ({
-      ...currentState,
-      status: 'Ready',
-    }));
-    this.refreshDiagnostics();
-    receiverStarted = true;
-  }
-
-  private refreshDiagnostics(): void {
-    this.diagnostics.set(this.getReceiverDiagnostics());
-  }
-
-  private getReceiverDiagnostics(): ReceiverDiagnostics {
-    const hasCast = Boolean(window.cast);
-    const hasFramework = Boolean(window.cast?.framework);
-    const hasReceiverContext = Boolean(window.cast?.framework?.CastReceiverContext);
-    const receiverContext = window.cast?.framework?.CastReceiverContext?.getInstance?.();
-    const hasPlayerManager = Boolean(receiverContext?.getPlayerManager?.());
-    const hasPlayerStateEventType = Boolean(window.cast?.framework?.events?.EventType?.PLAYER_STATE);
-    const hasMediaInformationChangedEventType = Boolean(window.cast?.framework?.events?.EventType?.MEDIA_INFORMATION_CHANGED);
-    const hasLoadMessageType = Boolean(window.cast?.framework?.messages?.MessageType?.LOAD);
-    const hasCastSdkScriptTag = Boolean(document.querySelector<HTMLScriptElement>('script[data-cast-receiver-sdk="true"]'));
-    const hasApiAvailableCallback = typeof window.__onGCastApiAvailable === 'function';
-
-    return {
-      hasCast,
-      hasFramework,
-      hasReceiverContext,
-      hasPlayerManager,
-      hasPlayerStateEventType,
-      hasMediaInformationChangedEventType,
-      hasLoadMessageType,
-      hasCastSdkScriptTag,
-      hasApiAvailableCallback,
-    };
-  }
-
-  private getQueuePayload(loadRequestData: any): (CastReceiverQueuePayload & { selectedItemId?: string }) | null {
-    if (loadRequestData?.customData?.queue) {
-      return loadRequestData.customData;
-    }
-
-    if (loadRequestData?.media?.customData?.queue) {
-      return loadRequestData.media.customData;
-    }
-
-    return null;
   }
 }
