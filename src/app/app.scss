@@ -294,6 +294,11 @@ button {
   border-color: rgba(167, 211, 255, 0.62);
 }
 
+.cast-launcher svg {
+  width: 24px;
+  height: 24px;
+}
+
 .action-row .cast-launcher,
 .action-row google-cast-launcher.cast-launcher {
   display: inline-flex !important;
