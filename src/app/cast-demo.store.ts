@@ -20,28 +20,28 @@ export interface VideoDraft {
 
 const sampleVideos: CastMediaItem[] = [
   createMediaItem({
-    id: 'big-buck-bunny',
-    title: 'Big Buck Bunny',
-    subtitle: 'Google-hosted MP4 sample',
-    url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    mimeType: 'video/mp4',
-    posterUrl: 'https://peach.blender.org/wp-content/uploads/title_anouncement.jpg?x11217',
+    id: 'nak-aed',
+    title: 'Nak & Æd',
+    subtitle: 'Nak & Æd: En bushbuck i Zambia',
+    url: 'https://drod23q.akamaized.net/all/clear/none/b7/614333c4ac5a6114a4eec3b7/00951732070/stream_fmp4/master_manifest.m3u8',
+    mimeType: 'application/x-mpegURL',
+    posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
   }),
   createMediaItem({
-    id: 'elephants-dream',
-    title: 'Elephants Dream',
-    subtitle: 'Google-hosted MP4 sample',
-    url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    mimeType: 'video/mp4',
-    posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
+    id: 'kontant',
+    title: 'Kontant',
+    subtitle: 'Kontant: Køkkenkrejlere',
+    url: 'https://drod22k.akamaized.net/all/clear/none/bf/6a03673f0b31bf1bdc1337bf/00102609080/stream_fmp4/master_manifest.m3u8',
+    mimeType: 'application/x-mpegURL',
+    posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
   }),
   createMediaItem({
-    id: 'tears-of-steel',
-    title: 'Tears of Steel',
-    subtitle: 'Google-hosted MP4 sample',
-    url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
-    mimeType: 'video/mp4',
-    posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/TearsOfSteel.jpg',
+    id: 'manden-i-hullet',
+    title: 'Manden i hullet',
+    subtitle: 'Manden i hullet: To spader og en gammel myte',
+    url: 'https://drod24s.akamaized.net/all/clear/none/a7/68fb7df57f141633447b35a7/00922514520/stream_fmp4/master_manifest.m3u8',
+    mimeType: 'application/x-mpegURL',
+    posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
   }),
 ];
 
@@ -64,11 +64,11 @@ export class CastDemoStore {
   readonly launcherDiagnostics = signal<GoogleCastLauncherDiagnostics>(getGoogleCastLauncherDiagnostics());
 
   readonly draft = signal<VideoDraft>({
-    title: 'Big Buck Bunny',
-    url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    mimeType: 'video/mp4',
-    subtitle: 'Add your own queue entry',
-    posterUrl: 'https://peach.blender.org/wp-content/uploads/title_anouncement.jpg?x11217',
+    title: 'Nak & Æd',
+    url: 'https://drod23q.akamaized.net/all/clear/none/b7/614333c4ac5a6114a4eec3b7/00951732070/stream_fmp4/master_manifest.m3u8',
+    mimeType: 'application/x-mpegURL',
+    subtitle: 'Nak & Æd: En bushbuck i Zambia',
+    posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
   });
 
   constructor() {
