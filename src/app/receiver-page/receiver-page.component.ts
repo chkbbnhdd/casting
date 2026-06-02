@@ -19,6 +19,18 @@ type ReceiverScreenState = {
   status: string;
 };
 
+type ReceiverDiagnostics = {
+  hasCast: boolean;
+  hasFramework: boolean;
+  hasReceiverContext: boolean;
+  hasPlayerManager: boolean;
+  hasPlayerStateEventType: boolean;
+  hasMediaInformationChangedEventType: boolean;
+  hasLoadMessageType: boolean;
+  hasCastSdkScriptTag: boolean;
+  hasApiAvailableCallback: boolean;
+};
+
 function loadReceiverFramework(): Promise<void> {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return Promise.reject(new Error('Cast receiver framework requires a browser environment.'));
@@ -96,6 +108,17 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     activeItemId: null,
     status: 'Idle',
   });
+  protected readonly diagnostics = signal<ReceiverDiagnostics>({
+    hasCast: false,
+    hasFramework: false,
+    hasReceiverContext: false,
+    hasPlayerManager: false,
+    hasPlayerStateEventType: false,
+    hasMediaInformationChangedEventType: false,
+    hasLoadMessageType: false,
+    hasCastSdkScriptTag: false,
+    hasApiAvailableCallback: false,
+  });
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly queueCountLabel = computed(() => {
     const count = this.state().items.length;
@@ -114,10 +137,14 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   private readonly teardownCallbacks: Array<() => void> = [];
 
   async ngOnInit(): Promise<void> {
+    this.refreshDiagnostics();
+
     try {
       await loadReceiverFramework();
+      this.refreshDiagnostics();
       this.initializeReceiver();
     } catch (error) {
+      this.refreshDiagnostics();
       this.errorMessage.set(error instanceof Error ? error.message : 'Receiver initialization failed.');
     }
   }
@@ -199,7 +226,37 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       ...currentState,
       status: 'Ready',
     }));
+    this.refreshDiagnostics();
     receiverStarted = true;
+  }
+
+  private refreshDiagnostics(): void {
+    this.diagnostics.set(this.getReceiverDiagnostics());
+  }
+
+  private getReceiverDiagnostics(): ReceiverDiagnostics {
+    const hasCast = Boolean(window.cast);
+    const hasFramework = Boolean(window.cast?.framework);
+    const hasReceiverContext = Boolean(window.cast?.framework?.CastReceiverContext);
+    const receiverContext = window.cast?.framework?.CastReceiverContext?.getInstance?.();
+    const hasPlayerManager = Boolean(receiverContext?.getPlayerManager?.());
+    const hasPlayerStateEventType = Boolean(window.cast?.framework?.events?.EventType?.PLAYER_STATE);
+    const hasMediaInformationChangedEventType = Boolean(window.cast?.framework?.events?.EventType?.MEDIA_INFORMATION_CHANGED);
+    const hasLoadMessageType = Boolean(window.cast?.framework?.messages?.MessageType?.LOAD);
+    const hasCastSdkScriptTag = Boolean(document.querySelector<HTMLScriptElement>('script[data-cast-receiver-sdk="true"]'));
+    const hasApiAvailableCallback = typeof window.__onGCastApiAvailable === 'function';
+
+    return {
+      hasCast,
+      hasFramework,
+      hasReceiverContext,
+      hasPlayerManager,
+      hasPlayerStateEventType,
+      hasMediaInformationChangedEventType,
+      hasLoadMessageType,
+      hasCastSdkScriptTag,
+      hasApiAvailableCallback,
+    };
   }
 
   private getQueuePayload(loadRequestData: any): (CastReceiverQueuePayload & { selectedItemId?: string }) | null {
