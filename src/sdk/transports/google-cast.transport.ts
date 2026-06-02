@@ -88,6 +88,35 @@ function getCastContext(chromeCastWindow: ChromeCastWindow): ReturnType<GoogleCa
   return chromeCastWindow.cast?.framework?.CastContext.getInstance() ?? null;
 }
 
+async function obtainCastSession(castContext: ReturnType<GoogleCastFramework['CastContext']['getInstance']>): Promise<GoogleCastSession | null> {
+  const immediateSession = castContext.getCurrentSession();
+  if (immediateSession) {
+    return immediateSession;
+  }
+
+  try {
+    await castContext.requestSession();
+  } catch {
+    return null;
+  }
+
+  let session = castContext.getCurrentSession();
+  if (session) {
+    return session;
+  }
+
+  const retries = [250, 500];
+  for (const waitMs of retries) {
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    session = castContext.getCurrentSession();
+    if (session) {
+      return session;
+    }
+  }
+
+  return null;
+}
+
 function createMediaInfo(item: CastMediaItem, chromeCastWindow: ChromeCastWindow): unknown {
   const mediaNamespace = chromeCastWindow.chrome?.cast?.media;
   if (!mediaNamespace) {
@@ -168,11 +197,8 @@ export class GoogleCastTransport implements CastTransport {
       throw new Error('Google Cast context is not available.');
     }
 
-    if (!castContext.getCurrentSession()) {
-      await castContext.requestSession();
-    }
-
-    if (!castContext.getCurrentSession()) {
+    const session = await obtainCastSession(castContext);
+    if (!session) {
       throw new Error('No active Cast session was created.');
     }
 
