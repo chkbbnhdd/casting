@@ -35,7 +35,24 @@ cast-media-player {
   z-index: 2;
 }
 
+.receiver-logo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.receiver-logo img {
+  width: clamp(14rem, 40vw, 22rem);
+  opacity: 0.16;
+  filter: drop-shadow(0 0 3rem rgba(0, 0, 0, 0.35));
+}
+
 .receiver-panel {
+  position: relative;
   backdrop-filter: blur(24px);
   background: rgba(11, 18, 34, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.12);
