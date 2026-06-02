@@ -155,13 +155,21 @@ export class CastSenderClient {
       }
     } catch (error) {
       const message = formatCastError(error);
+      let userMessage = message;
+
+      if (message.includes('Failed to request Cast session')) {
+        userMessage = 'No receiver selected or the request was blocked by the browser. ' + message;
+      } else if (message.includes('No active Cast session')) {
+        userMessage = 'No receiver selected or no device found. ' + message;
+      }
+
       this.log(`Connection failed: ${message}`);
       this.emit({
         ...this.state,
         connected: false,
         sdkReady: false,
         statusMessage: 'Could not connect to a Cast receiver.',
-        lastError: message,
+        lastError: userMessage,
       });
     }
   }

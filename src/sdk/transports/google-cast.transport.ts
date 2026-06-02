@@ -198,6 +198,15 @@ export class GoogleCastTransport implements CastTransport {
       throw new Error('Google Cast context is not available.');
     }
 
+    try {
+      const urlAppId = new URLSearchParams(chromeCastWindow.location.search).get('castAppId') ?? null;
+      const sdkDefault = (chromeCastWindow as any).chrome?.cast?.media?.DEFAULT_MEDIA_RECEIVER_APP_ID ?? null;
+      const resolvedAppId = urlAppId ?? sdkDefault ?? 'unknown';
+      console.log(`[${new Date().toLocaleTimeString()}] GoogleCastTransport: requesting session for appId=${resolvedAppId}`);
+    } catch (e) {
+      // ignore logging errors in environments that restrict URL access
+    }
+
     const session = await obtainCastSession(castContext);
     if (!session) {
       throw new Error('No active Cast session was created.');
