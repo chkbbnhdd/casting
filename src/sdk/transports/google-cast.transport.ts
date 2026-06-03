@@ -156,7 +156,7 @@ function createMediaInfo(item: CastMediaItem, chromeCastWindow: ChromeCastWindow
   mediaInfo.metadata = metadata;
   const isHls = item.mimeType === 'application/x-mpegURL' || item.mimeType === 'application/vnd.apple.mpegurl';
   mediaInfo.streamType = isHls
-    ? (mediaNamespace.StreamType?.OTHER ?? 'OTHER')
+    ? (mediaNamespace.StreamType?.BUFFERED ?? 'BUFFERED')
     : (mediaNamespace.StreamType?.BUFFERED ?? 'BUFFERED');
   return mediaInfo;
 }

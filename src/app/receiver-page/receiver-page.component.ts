@@ -97,8 +97,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
       playerManager.setMessageInterceptor(MessageType.LOAD, (loadRequestData: any) => {
         this.pushLog('Received LOAD message');
-        this.pushLog('Media URL: ' + loadRequestData?.media?.contentId);
-        this.pushLog('Media MIME: ' + loadRequestData?.media?.contentType);
+        this.pushLog('contentId: ' + loadRequestData?.media?.contentId);
+        this.pushLog('contentUrl: ' + (loadRequestData?.media?.contentUrl ?? '(not set)'));
+        this.pushLog('contentType: ' + loadRequestData?.media?.contentType);
+        this.pushLog('streamType: ' + loadRequestData?.media?.streamType);
         this.nextItemTitle.set(null);
         this.nextItemThumbnail.set(null);
 
@@ -106,7 +108,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
           const payload = loadRequestData?.customData?.queue ?? loadRequestData?.media?.customData?.queue ?? null;
           if (payload && payload.items) {
             this.queueStatus.set(payload.status ?? 'idle');
-            const selectedId = loadRequestData?.customData?.selectedItemId ?? payload.activeItemId ?? payload.items?.[0]?.id ?? null;
+            const selectedId = loadRequestData?.customData?.selectedItemId ?? loadRequestData?.media?.customData?.selectedItemId ?? payload.activeItemId ?? payload.items?.[0]?.id ?? null;
             const selectedItem = (payload.items || []).find((i: any) => i.id === selectedId) || payload.items?.[0];
             this.storedQueueItems = payload.items || [];
             if (selectedItem) {
@@ -114,13 +116,19 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
               this.title.set(selectedItem.title || 'Untitled');
               this.subtitle.set(selectedItem.subtitle || selectedItem.url || '');
               this.pushLog('Showing queue item: ' + (selectedItem.title || selectedItem.id));
-              
+
+              // Ensure contentUrl is set for the player — sender SDK may not serialize it
+              if (loadRequestData.media && !loadRequestData.media.contentUrl && selectedItem.url) {
+                loadRequestData.media.contentUrl = selectedItem.url;
+                this.pushLog('Set contentUrl from queue: ' + selectedItem.url);
+              }
+
               // Find and display next item
               const selectedIndex = (payload.items || []).findIndex((i: any) => i.id === selectedItem.id);
-              const nextItem = selectedIndex >= 0 && selectedIndex < (payload.items || []).length - 1 
+              const nextItem = selectedIndex >= 0 && selectedIndex < (payload.items || []).length - 1
                 ? payload.items[selectedIndex + 1]
                 : null;
-              
+
               if (nextItem) {
                 this.nextItemTitle.set(nextItem.title || 'Untitled');
                 this.nextItemThumbnail.set(nextItem.posterUrl || null);
@@ -156,6 +164,15 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       const EventType = window.cast.framework.events.EventType;
       playerManager.addEventListener(EventType.ENDED, () => {
         this.onCurrentItemEnded(playerManager);
+      });
+      playerManager.addEventListener(EventType.ERROR, (event: any) => {
+        const code = event?.detailedErrorCode ?? event?.errorCode ?? 'unknown';
+        const reason = event?.reason ?? '';
+        this.pushLog(`PLAYBACK ERROR: code=${code}${reason ? ' reason=' + reason : ''}`);
+      });
+      playerManager.addEventListener(EventType.MEDIA_STATUS, (event: any) => {
+        const playerState = event?.mediaStatus?.playerState ?? 'unknown';
+        this.pushLog('Player state: ' + playerState);
       });
 
       context.start();
@@ -193,7 +210,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       const loadReq = new window.cast.framework.messages.LoadRequestData();
       loadReq.media = new window.cast.framework.messages.MediaInformation();
       loadReq.media.contentId = nextItem.url;
+      loadReq.media.contentUrl = nextItem.url;
       loadReq.media.contentType = nextItem.mimeType || 'video/mp4';
+      const isHls = (nextItem.mimeType || '').includes('mpegURL') || (nextItem.mimeType || '').includes('mpegurl');
+      loadReq.media.streamType = isHls ? 'BUFFERED' : 'BUFFERED';
       loadReq.autoplay = true;
       playerManager.load(loadReq);
       this.pushLog('Auto-advancing to: ' + (nextItem.title || nextItem.id));
