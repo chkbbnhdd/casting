@@ -60,7 +60,7 @@ function loadReceiverFramework(): Promise<void> {
 export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly title = signal('Waiting for content');
   protected readonly subtitle = signal('Idle');
-  protected readonly isPlaying = signal(false);
+  protected readonly queueStatus = signal<string>('idle');
   protected readonly nextItemTitle = signal<string | null>(null);
   protected readonly nextItemThumbnail = signal<string | null>(null);
   protected readonly logs = signal<string[]>([]);
@@ -91,23 +91,18 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       const context = window.cast.framework.CastReceiverContext.getInstance();
       const playerManager = context.getPlayerManager();
       const MessageType = window.cast.framework.messages.MessageType;
-      const EventType = window.cast.framework.events.EventType;
-
-      playerManager.addEventListener(EventType.PLAYER_STATE_CHANGED, (event: any) => {
-        this.isPlaying.set(event?.playerState === 'PLAYING');
-      });
 
       playerManager.setMessageInterceptor(MessageType.LOAD, (loadRequestData: any) => {
         this.pushLog('Received LOAD message');
         this.pushLog('Media URL: ' + loadRequestData?.media?.contentId);
         this.pushLog('Media MIME: ' + loadRequestData?.media?.contentType);
-        this.isPlaying.set(false);
         this.nextItemTitle.set(null);
         this.nextItemThumbnail.set(null);
 
         try {
           const payload = loadRequestData?.customData?.queue ?? loadRequestData?.media?.customData?.queue ?? null;
           if (payload && payload.queue) {
+            this.queueStatus.set(payload.queue.status ?? 'idle');
             const selectedId = payload.selectedItemId ?? payload.queue?.activeItemId ?? payload.queue.items?.[0]?.id ?? null;
             const selectedItem = (payload.queue.items || []).find((i: any) => i.id === selectedId) || payload.queue.items?.[0];
             if (selectedItem) {
@@ -134,12 +129,14 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
             const t = loadRequestData.media.customData.selectedItemTitle;
             this.title.set(t || 'Untitled');
             this.subtitle.set(loadRequestData.media?.contentId || '');
+            this.queueStatus.set('playing');
             this.nextItemTitle.set(null);
             this.nextItemThumbnail.set(null);
             this.pushLog('Showing media.customData.selectedItemTitle: ' + t);
           } else if (loadRequestData?.media) {
             this.title.set(loadRequestData.media?.metadata?.title || 'Playing media');
             this.subtitle.set(loadRequestData.media?.metadata?.subtitle || loadRequestData.media?.contentId || '');
+            this.queueStatus.set('playing');
             this.nextItemTitle.set(null);
             this.nextItemThumbnail.set(null);
             this.pushLog('Showing media.metadata title');
