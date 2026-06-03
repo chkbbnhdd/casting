@@ -29,6 +29,10 @@ export class MockCastTransport implements CastTransport {
     this.lastQueue = cloneQueueState(state);
   }
 
+  async disconnect(): Promise<void> {
+    this.lastQueue = null;
+  }
+
   setUiOverrides(overrides: Partial<CastUiOverrides>): void {
     this.uiOverrides = mergeUiOverrides(this.uiOverrides ?? defaultCastUiOverrides, overrides);
   }

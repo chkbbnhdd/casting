@@ -64,6 +64,7 @@ export interface CastTransport {
   play?(item: CastMediaItem, state: CastQueueState): Promise<void> | void;
   pause?(state: CastQueueState): Promise<void> | void;
   stop?(state: CastQueueState): Promise<void> | void;
+  disconnect?(): Promise<void> | void;
   setUiOverrides?(overrides: Partial<CastUiOverrides>): void;
 }
 

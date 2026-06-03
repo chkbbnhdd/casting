@@ -338,4 +338,28 @@ export class CastSenderClient {
     });
     this.transport.setUiOverrides?.(overrides);
   }
+
+  async disconnect(): Promise<void> {
+    try {
+      await this.transport.disconnect?.();
+      this.emit({
+        ...this.state,
+        connected: false,
+        queue: {
+          ...this.state.queue,
+          status: 'idle',
+          lastUpdatedIso: nowIso(),
+        },
+        statusMessage: 'Cast session ended.',
+        lastError: null,
+      });
+    } catch (error) {
+      const message = formatCastError(error);
+      this.emit({
+        ...this.state,
+        statusMessage: 'Could not end Cast session.',
+        lastError: message,
+      });
+    }
+  }
 }

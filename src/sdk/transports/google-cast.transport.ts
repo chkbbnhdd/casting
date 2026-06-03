@@ -331,6 +331,21 @@ export class GoogleCastTransport implements CastTransport {
     this.lastQueue = cloneQueueState(state);
   }
 
+  async disconnect(): Promise<void> {
+    const chromeCastWindow = getChromeCastWindow();
+    const fw = chromeCastWindow?.cast?.framework;
+    if (fw?.CastContext) {
+      try {
+        const ctx = fw.CastContext.getInstance() as { endCurrentSession?: (stop: boolean) => void };
+        ctx.endCurrentSession?.(true);
+        console.log('[GoogleCastTransport] Cast session ended');
+      } catch (e) {
+        console.warn('[GoogleCastTransport] disconnect failed:', e);
+      }
+    }
+    this.lastQueue = null;
+  }
+
   setUiOverrides(overrides: Partial<CastUiOverrides>): void {
     this.uiOverrides = mergeUiOverrides(this.uiOverrides ?? defaultCastUiOverrides, overrides);
   }

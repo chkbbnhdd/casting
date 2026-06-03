@@ -266,6 +266,15 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.ghost.danger {
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.3);
+  &:hover {
+    background: rgba(255, 107, 107, 0.12);
+    border-color: rgba(255, 107, 107, 0.5);
+  }
+}
+
 .cast-launcher {
   display: inline-flex !important;
   align-items: center;

@@ -49,6 +49,10 @@ export class HybridCastTransport implements CastTransport {
     await this.activeTransport.stop?.(state);
   }
 
+  async disconnect(): Promise<void> {
+    await this.activeTransport.disconnect?.();
+  }
+
   setUiOverrides(overrides: Partial<CastUiOverrides>): void {
     this.googleTransport.setUiOverrides?.(overrides);
     this.mockTransport.setUiOverrides?.(overrides);
