@@ -91,6 +91,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
       playerManager.setMessageInterceptor(MessageType.LOAD, (loadRequestData: any) => {
         this.pushLog('Received LOAD message');
+        this.pushLog('Media URL: ' + loadRequestData?.media?.contentId);
+        this.pushLog('Media MIME: ' + loadRequestData?.media?.contentType);
 
         try {
           const payload = loadRequestData?.customData?.queue ?? loadRequestData?.media?.customData?.queue ?? null;
