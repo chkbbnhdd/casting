@@ -39,6 +39,8 @@ cast-media-player {
   --controls-display: none;
   --controls-opacity: 0;
   --controls-background: transparent;
+  clip-path: inset(0 0 50px 0);
+  position: relative;
 }
 
 cast-media-player::part(media-element) {
