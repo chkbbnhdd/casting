@@ -3,7 +3,7 @@
   <cast-media-player></cast-media-player>
 
   <div class="logo">
-    @if (queueStatus() !== 'playing') {
+    @if (!isPlaying()) {
       <img src="/dr_logo.svg" alt="DR logo" />
     }
   </div>

@@ -61,6 +61,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly title = signal('Waiting for content');
   protected readonly subtitle = signal('Idle');
   protected readonly queueStatus = signal<string>('idle');
+  protected readonly isPlaying = signal(false);
   protected readonly nextItemTitle = signal<string | null>(null);
   protected readonly nextItemThumbnail = signal<string | null>(null);
   protected readonly showNextUp = signal(false);
@@ -185,6 +186,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       playerManager.addEventListener(EventType.MEDIA_STATUS, (event: any) => {
         const playerState = event?.mediaStatus?.playerState ?? 'unknown';
         this.pushLog('Player state: ' + playerState);
+        this.isPlaying.set(playerState === 'PLAYING' || playerState === 'BUFFERING' || playerState === 'LOADING');
       });
       playerManager.addEventListener(EventType.TIME_UPDATE, () => {
         const current = playerManager.getCurrentTimeSec();
