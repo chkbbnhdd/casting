@@ -25,6 +25,16 @@
   width: 100%;
   height: 100%;
   z-index: 1;
+  --progress-color: #ff0000;
+  --progress-bg: rgba(255, 0, 0, 0.2);
+}
+
+cast-media-player::part(progress-bar) {
+  width: 100% !important;
+}
+
+::slotted([slot="progress-bar"]) {
+  width: 100% !important;
 }
 
 .logo img {
