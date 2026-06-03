@@ -63,6 +63,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly queueStatus = signal<string>('idle');
   protected readonly nextItemTitle = signal<string | null>(null);
   protected readonly nextItemThumbnail = signal<string | null>(null);
+  protected readonly showNextUp = signal(false);
   protected readonly logs = signal<string[]>([]);
 
   private storedQueueItems: any[] = [];
@@ -113,6 +114,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         } catch { /* ignore */ }
         this.nextItemTitle.set(null);
         this.nextItemThumbnail.set(null);
+        this.showNextUp.set(false);
 
         try {
           const payload = loadRequestData?.customData?.queue ?? loadRequestData?.media?.customData?.queue ?? null;
@@ -184,6 +186,14 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         const playerState = event?.mediaStatus?.playerState ?? 'unknown';
         this.pushLog('Player state: ' + playerState);
       });
+      playerManager.addEventListener(EventType.TIME_UPDATE, () => {
+        const current = playerManager.getCurrentTimeSec();
+        const duration = playerManager.getDurationSec();
+        if (duration > 0 && this.nextItemTitle()) {
+          const remaining = duration - current;
+          this.showNextUp.set(remaining <= 30);
+        }
+      });
 
       context.start();
       this.pushLog('Receiver context started');
@@ -211,6 +221,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     this.title.set(nextItem.title || 'Untitled');
     this.subtitle.set(nextItem.subtitle || nextItem.url || '');
     this.queueStatus.set('playing');
+    this.showNextUp.set(false);
 
     const nextNextItem = currentIndex + 2 < items.length ? items[currentIndex + 2] : null;
     this.nextItemTitle.set(nextNextItem?.title ?? null);

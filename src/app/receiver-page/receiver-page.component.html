@@ -10,7 +10,7 @@
 
   <section class="info" aria-live="polite">
 
-    @if (nextItemTitle() && nextItemThumbnail()) {
+    @if (showNextUp() && nextItemTitle() && nextItemThumbnail()) {
       <aside class="next-up" aria-label="Next in queue">
         <p class="next-label">Next up</p>
         <div class="next-item">
