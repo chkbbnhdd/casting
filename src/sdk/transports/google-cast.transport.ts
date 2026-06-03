@@ -267,17 +267,6 @@ export class GoogleCastTransport implements CastTransport {
       throw new Error('Could not create Google Cast media request.');
     }
 
-    const req = request as any;
-    console.log('[GoogleCastTransport] loadQueue — sending LOAD request:', JSON.stringify({
-      contentId: req.media?.contentId,
-      contentUrl: req.media?.contentUrl,
-      contentType: req.media?.contentType,
-      streamType: req.media?.streamType,
-      autoplay: req.autoplay,
-      hasCustomData: Boolean(req.customData),
-      hasMediaCustomData: Boolean(req.media?.customData),
-    }));
-
     await session.loadMedia(request);
   }
 
