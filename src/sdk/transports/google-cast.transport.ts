@@ -16,16 +16,17 @@ type GoogleCastSession = {
   loadMedia?: (request: unknown) => Promise<void> | void;
 };
 
+type GoogleCastRemotePlayer = object;
+
 type GoogleCastFramework = {
   CastContext: {
     getInstance: () => {
       getCurrentSession: () => GoogleCastSession | null;
       requestSession: () => Promise<void>;
-      endCurrentSession: (stopCasting: boolean) => void;
     };
   };
-  RemotePlayer: new () => { isPaused: boolean };
-  RemotePlayerController: new (player: { isPaused: boolean }) => {
+  RemotePlayer: new () => GoogleCastRemotePlayer;
+  RemotePlayerController: new (player: GoogleCastRemotePlayer) => {
     playOrPause: () => void;
     stop: () => void;
   };
@@ -289,25 +290,36 @@ export class GoogleCastTransport implements CastTransport {
 
   async pause(state: CastQueueState): Promise<void> {
     const chromeCastWindow = getChromeCastWindow();
-    if (chromeCastWindow) {
-      const castFramework = (chromeCastWindow as unknown as { cast?: { framework?: GoogleCastFramework } }).cast?.framework;
-      if (castFramework?.RemotePlayer && castFramework?.RemotePlayerController) {
-        const remotePlayer = new castFramework.RemotePlayer();
-        const controller = new castFramework.RemotePlayerController(remotePlayer);
-        if (!remotePlayer.isPaused) {
-          controller.playOrPause();
-        }
+    const fw = chromeCastWindow?.cast?.framework;
+    console.log('[GoogleCastTransport] pause — RemotePlayer:', typeof fw?.RemotePlayer, 'RemotePlayerController:', typeof fw?.RemotePlayerController);
+    if (fw?.RemotePlayer && fw?.RemotePlayerController) {
+      try {
+        const controller = new fw.RemotePlayerController(new fw.RemotePlayer());
+        controller.playOrPause();
+        console.log('[GoogleCastTransport] playOrPause() dispatched');
+      } catch (e) {
+        console.warn('[GoogleCastTransport] pause via RemotePlayerController failed:', e);
       }
+    } else {
+      console.warn('[GoogleCastTransport] pause — cast.framework.RemotePlayer not available');
     }
     this.lastQueue = cloneQueueState(state);
   }
 
   async stop(state: CastQueueState): Promise<void> {
     const chromeCastWindow = getChromeCastWindow();
-    if (chromeCastWindow) {
-      const castFramework = (chromeCastWindow as unknown as { cast?: { framework?: GoogleCastFramework } }).cast?.framework;
-      const castContext = castFramework?.CastContext.getInstance() ?? null;
-      castContext?.endCurrentSession(true);
+    const fw = chromeCastWindow?.cast?.framework;
+    console.log('[GoogleCastTransport] stop — RemotePlayer:', typeof fw?.RemotePlayer, 'RemotePlayerController:', typeof fw?.RemotePlayerController);
+    if (fw?.RemotePlayer && fw?.RemotePlayerController) {
+      try {
+        const controller = new fw.RemotePlayerController(new fw.RemotePlayer());
+        controller.stop();
+        console.log('[GoogleCastTransport] stop() dispatched');
+      } catch (e) {
+        console.warn('[GoogleCastTransport] stop via RemotePlayerController failed:', e);
+      }
+    } else {
+      console.warn('[GoogleCastTransport] stop — cast.framework.RemotePlayer not available');
     }
     this.lastQueue = cloneQueueState(state);
   }
