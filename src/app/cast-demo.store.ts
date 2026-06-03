@@ -20,6 +20,14 @@ export interface VideoDraft {
 
 const sampleVideos: CastMediaItem[] = [
   createMediaItem({
+    id: 'apple-hls-test',
+    title: 'Apple HLS Test (fMP4)',
+    subtitle: 'Public test stream — known-good HLS',
+    url: 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
+    mimeType: 'application/x-mpegURL',
+    posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+  }),
+  createMediaItem({
     id: 'nak-aed',
     title: 'Nak & Æd',
     subtitle: 'Nak & Æd: En bushbuck i Zambia',

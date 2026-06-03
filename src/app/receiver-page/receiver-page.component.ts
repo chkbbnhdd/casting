@@ -101,6 +101,16 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         this.pushLog('contentUrl: ' + (loadRequestData?.media?.contentUrl ?? '(not set)'));
         this.pushLog('contentType: ' + loadRequestData?.media?.contentType);
         this.pushLog('streamType: ' + loadRequestData?.media?.streamType);
+        try {
+          const mediaJson = JSON.stringify({
+            contentId: loadRequestData?.media?.contentId,
+            contentUrl: loadRequestData?.media?.contentUrl,
+            contentType: loadRequestData?.media?.contentType,
+            streamType: loadRequestData?.media?.streamType,
+            customData: loadRequestData?.media?.customData,
+          });
+          this.pushLog('media JSON: ' + mediaJson.slice(0, 300));
+        } catch { /* ignore */ }
         this.nextItemTitle.set(null);
         this.nextItemThumbnail.set(null);
 

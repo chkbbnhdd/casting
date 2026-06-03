@@ -179,6 +179,8 @@ function createLoadRequest(item: CastMediaItem, state: CastQueueState, chromeCas
   request.customData = {
     ...serializablePayload,
     queueIds: queueData.items.map((queueItem) => queueItem.id),
+    selectedItemId: item.id,
+    selectedItemTitle: item.title,
   };
   (mediaInfo as { customData?: Record<string, unknown> }).customData = {
     ...(item.customData ?? {}),
