@@ -60,6 +60,8 @@ function loadReceiverFramework(): Promise<void> {
 export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly title = signal('Waiting for content');
   protected readonly subtitle = signal('Idle');
+  protected readonly nextItemTitle = signal<string | null>(null);
+  protected readonly nextItemThumbnail = signal<string | null>(null);
   protected readonly logs = signal<string[]>([]);
 
   async ngOnInit(): Promise<void> {
@@ -103,15 +105,34 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
               this.title.set(selectedItem.title || 'Untitled');
               this.subtitle.set(selectedItem.subtitle || selectedItem.url || '');
               this.pushLog('Showing queue item: ' + (selectedItem.title || selectedItem.id));
+              
+              // Find and display next item
+              const selectedIndex = (payload.queue.items || []).findIndex((i: any) => i.id === selectedItem.id);
+              const nextItem = selectedIndex >= 0 && selectedIndex < (payload.queue.items || []).length - 1 
+                ? payload.queue.items[selectedIndex + 1]
+                : null;
+              
+              if (nextItem) {
+                this.nextItemTitle.set(nextItem.title || 'Untitled');
+                this.nextItemThumbnail.set(nextItem.posterUrl || null);
+                this.pushLog('Next item queued: ' + (nextItem.title || nextItem.id));
+              } else {
+                this.nextItemTitle.set(null);
+                this.nextItemThumbnail.set(null);
+              }
             }
           } else if (loadRequestData?.media?.customData?.selectedItemTitle) {
             const t = loadRequestData.media.customData.selectedItemTitle;
             this.title.set(t || 'Untitled');
             this.subtitle.set(loadRequestData.media?.contentId || '');
+            this.nextItemTitle.set(null);
+            this.nextItemThumbnail.set(null);
             this.pushLog('Showing media.customData.selectedItemTitle: ' + t);
           } else if (loadRequestData?.media) {
             this.title.set(loadRequestData.media?.metadata?.title || 'Playing media');
             this.subtitle.set(loadRequestData.media?.metadata?.subtitle || loadRequestData.media?.contentId || '');
+            this.nextItemTitle.set(null);
+            this.nextItemThumbnail.set(null);
             this.pushLog('Showing media.metadata title');
           }
         } catch (e: any) {

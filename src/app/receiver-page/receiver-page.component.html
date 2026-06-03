@@ -13,6 +13,14 @@
     <p id="subtitle">{{ subtitle() }}</p>
   </section>
 
+  <section class="next-up" *ngIf="nextItemTitle()">
+    <p class="next-label">Up Next</p>
+    <div class="next-item">
+      <img *ngIf="nextItemThumbnail()" [src]="nextItemThumbnail()" alt="{{ nextItemTitle() }}" class="next-thumbnail" />
+      <p class="next-title">{{ nextItemTitle() }}</p>
+    </div>
+  </section>
+
   <section class="diagnostics">
     <pre aria-live="polite">
 @for (log of logs(); track $index) {
