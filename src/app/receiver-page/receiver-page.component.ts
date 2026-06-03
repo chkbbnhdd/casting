@@ -9,6 +9,7 @@ declare global {
 }
 
 const CAST_RECEIVER_SCRIPT_URL = 'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js';
+const NEXT_UP_PREVIEW_SECONDS = 30;
 
 function loadReceiverFramework(): Promise<void> {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -193,7 +194,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         const duration = playerManager.getDurationSec();
         if (duration > 0 && this.nextItemTitle()) {
           const remaining = duration - current;
-          this.showNextUp.set(remaining <= 30);
+          this.showNextUp.set(remaining <= NEXT_UP_PREVIEW_SECONDS);
         }
       });
 
