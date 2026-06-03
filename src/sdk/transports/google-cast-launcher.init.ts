@@ -25,7 +25,7 @@ type CastFrameworkWindow = Window & {
 };
 
 const CAST_SENDER_SCRIPT_URL = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
-const DEFAULT_MEDIA_RECEIVER_APP_ID = 'CD17C645';
+const DEFAULT_MEDIA_RECEIVER_APP_ID = 'CC1AD845';
 const CUSTOM_RECEIVER_PAGE_PATH = '/receiver';
 const RECEIVER_APP_ID_QUERY_PARAM = 'castAppId';
 const ORIGIN_SCOPED_AUTO_JOIN_POLICY = 'origin_scoped';
