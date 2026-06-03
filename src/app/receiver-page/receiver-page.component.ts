@@ -65,6 +65,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly queueStatus = signal<string>('idle');
   protected readonly isPlaying = signal(false);
   protected readonly showProgressBarLogo = signal(false);
+  protected readonly currentTimeSec = signal(0);
+  protected readonly durationSec = signal(0);
   private controlsHideTimer: ReturnType<typeof setTimeout> | null = null;
   protected readonly nextItemTitle = signal<string | null>(null);
   protected readonly nextItemThumbnail = signal<string | null>(null);
@@ -89,6 +91,16 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     if (this.controlsHideTimer !== null) {
       clearTimeout(this.controlsHideTimer);
     }
+  }
+
+  protected formatTime(secs: number): string {
+    if (!isFinite(secs) || secs < 0) return '0:00';
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = Math.floor(secs % 60);
+    const mm = String(m).padStart(h > 0 ? 2 : 1, '0');
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
   }
 
   private setProgressBarLogoVisible(visible: boolean): void {
@@ -219,6 +231,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       playerManager.addEventListener(EventType.TIME_UPDATE, () => {
         const current = playerManager.getCurrentTimeSec();
         const duration = playerManager.getDurationSec();
+        this.currentTimeSec.set(current ?? 0);
+        this.durationSec.set(duration ?? 0);
         if (duration > 0 && this.nextItemTitle()) {
           const remaining = duration - current;
           this.showNextUp.set(remaining <= NEXT_UP_PREVIEW_SECONDS);

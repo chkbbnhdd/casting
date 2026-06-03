@@ -30,31 +30,120 @@
 }
 
 cast-media-player {
-  background: #ff0000;
-  --background-color: #ff0000;
+  background: #000;
+  --background-color: #000;
+  --progress-color: transparent;
+  --progress-buffered-color: transparent;
+  --progress-thumb-color: transparent;
+  --splash-color: #000;
 }
 
 cast-media-player::part(media-element) {
-  background: #ff0000;
+  background: #000;
 }
 
-cast-media-player::part(progress) {
+cast-media-player::part(progress),
+cast-media-player::part(progress-bar-container),
+cast-media-player::part(progress-bar) {
+  display: none !important;
+}
+
+.custom-controls {
   position: fixed;
   bottom: 0;
   left: 0;
-  width: 100vw !important;
-  padding: 0;
-  margin: 0;
+  right: 0;
+  z-index: 100;
+  padding: 0 2rem 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-bottom: 1rem;
 }
 
-cast-media-player::part(progress-bar-container) {
-  width: 100vw !important;
-  max-width: 100vw !important;
+.custom-controls-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-cast-media-player::part(progress-bar) {
-  width: 100vw !important;
-  max-width: 100vw !important;
+.custom-controls-logo {
+  height: 24px;
+  width: auto;
+  flex-shrink: 0;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+}
+
+.custom-controls-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.custom-controls-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.custom-controls-subtitle {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.custom-controls-time {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.custom-controls-time-sep {
+  opacity: 0.45;
+}
+
+.custom-controls-track {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.custom-controls-buffered {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.custom-controls-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #ff0000;
+  border-radius: 2px;
+  pointer-events: none;
+  transition: width 0.25s linear;
 }
 
 .logo img {
@@ -113,24 +202,6 @@ cast-media-player::part(progress-bar) {
   font-size: 0.9rem;
   overflow: auto;
   max-height: 120px;
-}
-
-.progressbar-logo {
-  position: fixed;
-  bottom: 0;
-  left: 1.5rem;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  height: 36px;
-  pointer-events: none;
-
-  img {
-    height: 22px;
-    width: auto;
-    opacity: 0.92;
-    filter: brightness(0) invert(1);
-  }
 }
 
 .next-up {

@@ -9,8 +9,29 @@
   </div>
 
   @if (showProgressBarLogo()) {
-    <div class="progressbar-logo" aria-hidden="true">
-      <img src="/dr_logo.svg" alt="" />
+    <div class="custom-controls" aria-hidden="true">
+      <div class="custom-controls-top">
+        <img class="custom-controls-logo" src="/dr_logo.svg" alt="" />
+        <div class="custom-controls-meta">
+          <span class="custom-controls-title">{{ title() }}</span>
+          <span class="custom-controls-subtitle">{{ subtitle() }}</span>
+        </div>
+        <div class="custom-controls-time">
+          <span>{{ formatTime(currentTimeSec()) }}</span>
+          <span class="custom-controls-time-sep">/</span>
+          <span>{{ formatTime(durationSec()) }}</span>
+        </div>
+      </div>
+      <div class="custom-controls-track">
+        <div
+          class="custom-controls-fill"
+          [style.width.%]="durationSec() > 0 ? (currentTimeSec() / durationSec()) * 100 : 0"
+        ></div>
+        <div
+          class="custom-controls-buffered"
+          [style.width.%]="0"
+        ></div>
+      </div>
     </div>
   }
 
