@@ -20,10 +20,10 @@ export interface VideoDraft {
 
 const sampleVideos: CastMediaItem[] = [
   createMediaItem({
-    id: 'apple-hls-test',
-    title: 'Apple HLS Test (fMP4)',
-    subtitle: 'Public test stream — known-good HLS',
-    url: 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
+    id: 'mux-hls-test',
+    title: 'Mux HLS Test',
+    subtitle: 'Open-CORS HLS stream — confirms HLS works',
+    url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
     mimeType: 'application/x-mpegURL',
     posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
   }),
