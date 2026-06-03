@@ -55,6 +55,20 @@ cast-media-player::part(progress-bar) {
   font-size: 1.6rem;
 }
 
+.logo-title {
+  margin: 0.35rem 0 0.1rem 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-title img {
+  height: 60px;
+  width: auto;
+  opacity: 0.95;
+}
+
 #subtitle {
   margin: 0;
   opacity: 0.8;
