@@ -39,22 +39,6 @@ cast-media-player {
   --controls-display: none;
   --controls-opacity: 0;
   --controls-background: transparent;
-  --progress-height: 0;
-  --progress-width: 0;
-  overflow: hidden;
-  position: relative;
-}
-
-cast-media-player::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 80px;
-  background: transparent;
-  z-index: 200;
-  pointer-events: none;
 }
 
 cast-media-player::part(media-element) {
