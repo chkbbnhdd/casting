@@ -104,11 +104,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
         try {
           const payload = loadRequestData?.customData?.queue ?? loadRequestData?.media?.customData?.queue ?? null;
-          if (payload && payload.queue) {
-            this.queueStatus.set(payload.queue.status ?? 'idle');
-            const selectedId = payload.selectedItemId ?? payload.queue?.activeItemId ?? payload.queue.items?.[0]?.id ?? null;
-            const selectedItem = (payload.queue.items || []).find((i: any) => i.id === selectedId) || payload.queue.items?.[0];
-            this.storedQueueItems = payload.queue.items || [];
+          if (payload && payload.items) {
+            this.queueStatus.set(payload.status ?? 'idle');
+            const selectedId = loadRequestData?.customData?.selectedItemId ?? payload.activeItemId ?? payload.items?.[0]?.id ?? null;
+            const selectedItem = (payload.items || []).find((i: any) => i.id === selectedId) || payload.items?.[0];
+            this.storedQueueItems = payload.items || [];
             if (selectedItem) {
               this.storedActiveItemId = selectedItem.id;
               this.title.set(selectedItem.title || 'Untitled');
@@ -116,9 +116,9 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
               this.pushLog('Showing queue item: ' + (selectedItem.title || selectedItem.id));
               
               // Find and display next item
-              const selectedIndex = (payload.queue.items || []).findIndex((i: any) => i.id === selectedItem.id);
-              const nextItem = selectedIndex >= 0 && selectedIndex < (payload.queue.items || []).length - 1 
-                ? payload.queue.items[selectedIndex + 1]
+              const selectedIndex = (payload.items || []).findIndex((i: any) => i.id === selectedItem.id);
+              const nextItem = selectedIndex >= 0 && selectedIndex < (payload.items || []).length - 1 
+                ? payload.items[selectedIndex + 1]
                 : null;
               
               if (nextItem) {

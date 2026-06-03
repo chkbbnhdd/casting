@@ -9,6 +9,8 @@ type GoogleCastMediaNamespace = {
   LoadRequest: new (mediaInfo: unknown) => { autoplay?: boolean; customData?: Record<string, unknown> };
   StreamType?: {
     BUFFERED?: unknown;
+    OTHER?: unknown;
+    LIVE?: unknown;
   };
 };
 
@@ -132,10 +134,12 @@ function createMediaInfo(item: CastMediaItem, chromeCastWindow: ChromeCastWindow
   }
 
   const mediaInfo = new mediaNamespace.MediaInfo(item.url, item.mimeType) as {
+    contentUrl?: string;
     metadata?: { title?: string; subtitle?: string; images?: unknown[] };
     customData?: Record<string, unknown>;
     streamType?: unknown;
   };
+  mediaInfo.contentUrl = item.url;
   const metadata = new mediaNamespace.GenericMediaMetadata();
   metadata.title = item.title;
   if (item.subtitle) {
@@ -150,7 +154,10 @@ function createMediaInfo(item: CastMediaItem, chromeCastWindow: ChromeCastWindow
   }
 
   mediaInfo.metadata = metadata;
-  mediaInfo.streamType = mediaNamespace.StreamType?.BUFFERED ?? 'BUFFERED';
+  const isHls = item.mimeType === 'application/x-mpegURL' || item.mimeType === 'application/vnd.apple.mpegurl';
+  mediaInfo.streamType = isHls
+    ? (mediaNamespace.StreamType?.OTHER ?? 'OTHER')
+    : (mediaNamespace.StreamType?.BUFFERED ?? 'BUFFERED');
   return mediaInfo;
 }
 
