@@ -36,6 +36,25 @@ cast-media-player {
   --progress-buffered-color: transparent;
   --progress-thumb-color: transparent;
   --splash-color: #000;
+  --controls-display: none;
+  --controls-opacity: 0;
+  --controls-background: transparent;
+  --progress-height: 0;
+  --progress-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+cast-media-player::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: transparent;
+  z-index: 200;
+  pointer-events: none;
 }
 
 cast-media-player::part(media-element) {
@@ -43,9 +62,14 @@ cast-media-player::part(media-element) {
 }
 
 cast-media-player::part(progress),
+cast-media-player::part(controls),
 cast-media-player::part(progress-bar-container),
 cast-media-player::part(progress-bar) {
   display: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 .custom-controls {
