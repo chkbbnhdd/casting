@@ -65,6 +65,9 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly nextItemThumbnail = signal<string | null>(null);
   protected readonly logs = signal<string[]>([]);
 
+  private storedQueueItems: any[] = [];
+  private storedActiveItemId: string | null = null;
+
   async ngOnInit(): Promise<void> {
     this.pushLog('Receiver booting');
     try {
@@ -105,7 +108,9 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
             this.queueStatus.set(payload.queue.status ?? 'idle');
             const selectedId = payload.selectedItemId ?? payload.queue?.activeItemId ?? payload.queue.items?.[0]?.id ?? null;
             const selectedItem = (payload.queue.items || []).find((i: any) => i.id === selectedId) || payload.queue.items?.[0];
+            this.storedQueueItems = payload.queue.items || [];
             if (selectedItem) {
+              this.storedActiveItemId = selectedItem.id;
               this.title.set(selectedItem.title || 'Untitled');
               this.subtitle.set(selectedItem.subtitle || selectedItem.url || '');
               this.pushLog('Showing queue item: ' + (selectedItem.title || selectedItem.id));
@@ -148,10 +153,52 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         return loadRequestData;
       });
 
+      const EventType = window.cast.framework.events.EventType;
+      playerManager.addEventListener(EventType.ENDED, () => {
+        this.onCurrentItemEnded(playerManager);
+      });
+
       context.start();
       this.pushLog('Receiver context started');
     } catch (e: any) {
       this.pushLog('Receiver initialize error: ' + (e?.message ?? String(e)));
+    }
+  }
+
+  private onCurrentItemEnded(playerManager: any): void {
+    const items = this.storedQueueItems;
+    const currentIndex = items.findIndex((i: any) => i.id === this.storedActiveItemId);
+    const nextItem = currentIndex >= 0 && currentIndex < items.length - 1
+      ? items[currentIndex + 1]
+      : null;
+
+    if (!nextItem) {
+      this.queueStatus.set('idle');
+      this.nextItemTitle.set(null);
+      this.nextItemThumbnail.set(null);
+      this.pushLog('Queue finished');
+      return;
+    }
+
+    this.storedActiveItemId = nextItem.id;
+    this.title.set(nextItem.title || 'Untitled');
+    this.subtitle.set(nextItem.subtitle || nextItem.url || '');
+    this.queueStatus.set('playing');
+
+    const nextNextItem = currentIndex + 2 < items.length ? items[currentIndex + 2] : null;
+    this.nextItemTitle.set(nextNextItem?.title ?? null);
+    this.nextItemThumbnail.set(nextNextItem?.posterUrl ?? null);
+
+    try {
+      const loadReq = new window.cast.framework.messages.LoadRequestData();
+      loadReq.media = new window.cast.framework.messages.MediaInformation();
+      loadReq.media.contentId = nextItem.url;
+      loadReq.media.contentType = nextItem.mimeType || 'video/mp4';
+      loadReq.autoplay = true;
+      playerManager.load(loadReq);
+      this.pushLog('Auto-advancing to: ' + (nextItem.title || nextItem.id));
+    } catch (e: any) {
+      this.pushLog('Error auto-advancing queue: ' + (e?.message ?? String(e)));
     }
   }
 }

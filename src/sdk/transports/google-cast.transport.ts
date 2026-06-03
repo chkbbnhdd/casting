@@ -21,7 +21,13 @@ type GoogleCastFramework = {
     getInstance: () => {
       getCurrentSession: () => GoogleCastSession | null;
       requestSession: () => Promise<void>;
+      endCurrentSession: (stopCasting: boolean) => void;
     };
+  };
+  RemotePlayer: new () => { isPaused: boolean };
+  RemotePlayerController: new (player: { isPaused: boolean }) => {
+    playOrPause: () => void;
+    stop: () => void;
   };
 };
 
@@ -282,10 +288,27 @@ export class GoogleCastTransport implements CastTransport {
   }
 
   async pause(state: CastQueueState): Promise<void> {
+    const chromeCastWindow = getChromeCastWindow();
+    if (chromeCastWindow) {
+      const castFramework = (chromeCastWindow as unknown as { cast?: { framework?: GoogleCastFramework } }).cast?.framework;
+      if (castFramework?.RemotePlayer && castFramework?.RemotePlayerController) {
+        const remotePlayer = new castFramework.RemotePlayer();
+        const controller = new castFramework.RemotePlayerController(remotePlayer);
+        if (!remotePlayer.isPaused) {
+          controller.playOrPause();
+        }
+      }
+    }
     this.lastQueue = cloneQueueState(state);
   }
 
   async stop(state: CastQueueState): Promise<void> {
+    const chromeCastWindow = getChromeCastWindow();
+    if (chromeCastWindow) {
+      const castFramework = (chromeCastWindow as unknown as { cast?: { framework?: GoogleCastFramework } }).cast?.framework;
+      const castContext = castFramework?.CastContext.getInstance() ?? null;
+      castContext?.endCurrentSession(true);
+    }
     this.lastQueue = cloneQueueState(state);
   }
 
