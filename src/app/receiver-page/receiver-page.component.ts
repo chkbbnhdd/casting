@@ -10,6 +10,7 @@ declare global {
 
 const CAST_RECEIVER_SCRIPT_URL = 'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js';
 const NEXT_UP_PREVIEW_SECONDS = 30;
+const CONTROLS_HIDE_DELAY_MS = 5000;
 
 function loadReceiverFramework(): Promise<void> {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -63,6 +64,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly subtitle = signal('Idle');
   protected readonly queueStatus = signal<string>('idle');
   protected readonly isPlaying = signal(false);
+  protected readonly showProgressBarLogo = signal(false);
+  private controlsHideTimer: ReturnType<typeof setTimeout> | null = null;
   protected readonly nextItemTitle = signal<string | null>(null);
   protected readonly nextItemThumbnail = signal<string | null>(null);
   protected readonly showNextUp = signal(false);
@@ -83,7 +86,17 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // nothing special to teardown
+    if (this.controlsHideTimer !== null) {
+      clearTimeout(this.controlsHideTimer);
+    }
+  }
+
+  private setProgressBarLogoVisible(visible: boolean): void {
+    if (this.controlsHideTimer !== null) {
+      clearTimeout(this.controlsHideTimer);
+      this.controlsHideTimer = null;
+    }
+    this.showProgressBarLogo.set(visible);
   }
 
   private pushLog(message: string): void {
@@ -188,6 +201,20 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         const playerState = event?.mediaStatus?.playerState ?? 'unknown';
         this.pushLog('Player state: ' + playerState);
         this.isPlaying.set(playerState === 'PLAYING' || playerState === 'BUFFERING' || playerState === 'LOADING');
+        if (playerState === 'PAUSED') {
+          this.setProgressBarLogoVisible(true);
+        } else if (playerState === 'PLAYING' || playerState === 'BUFFERING' || playerState === 'LOADING') {
+          this.showProgressBarLogo.set(true);
+          if (this.controlsHideTimer !== null) {
+            clearTimeout(this.controlsHideTimer);
+          }
+          this.controlsHideTimer = setTimeout(() => {
+            this.showProgressBarLogo.set(false);
+            this.controlsHideTimer = null;
+          }, CONTROLS_HIDE_DELAY_MS);
+        } else {
+          this.setProgressBarLogoVisible(false);
+        }
       });
       playerManager.addEventListener(EventType.TIME_UPDATE, () => {
         const current = playerManager.getCurrentTimeSec();

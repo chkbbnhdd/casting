@@ -115,6 +115,24 @@ cast-media-player::part(progress-bar) {
   max-height: 120px;
 }
 
+.progressbar-logo {
+  position: fixed;
+  bottom: 0;
+  left: 1.5rem;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  pointer-events: none;
+
+  img {
+    height: 22px;
+    width: auto;
+    opacity: 0.92;
+    filter: brightness(0) invert(1);
+  }
+}
+
 .next-up {
   position: fixed;
   bottom: 2rem;

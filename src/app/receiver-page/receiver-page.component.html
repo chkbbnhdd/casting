@@ -8,6 +8,12 @@
     }
   </div>
 
+  @if (showProgressBarLogo()) {
+    <div class="progressbar-logo" aria-hidden="true">
+      <img src="/dr_logo.svg" alt="" />
+    </div>
+  }
+
   <section class="info" aria-live="polite">
 
     @if (showNextUp() && nextItemTitle() && nextItemThumbnail()) {
