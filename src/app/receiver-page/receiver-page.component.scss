@@ -17,6 +17,18 @@
   position: relative;
 }
 
+.receiver-root::before {
+  content: '';
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: #000;
+  z-index: 50;
+  pointer-events: none;
+}
+
 .media-player {
   position: absolute;
   top: 50%;
