@@ -60,6 +60,7 @@ function loadReceiverFramework(): Promise<void> {
 export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly title = signal('Waiting for content');
   protected readonly subtitle = signal('Idle');
+  protected readonly isPlaying = signal(false);
   protected readonly nextItemTitle = signal<string | null>(null);
   protected readonly nextItemThumbnail = signal<string | null>(null);
   protected readonly logs = signal<string[]>([]);
@@ -90,11 +91,17 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       const context = window.cast.framework.CastReceiverContext.getInstance();
       const playerManager = context.getPlayerManager();
       const MessageType = window.cast.framework.messages.MessageType;
+      const EventType = window.cast.framework.events.EventType;
+
+      playerManager.addEventListener(EventType.PLAYER_STATE_CHANGED, (event: any) => {
+        this.isPlaying.set(event?.playerState === 'PLAYING');
+      });
 
       playerManager.setMessageInterceptor(MessageType.LOAD, (loadRequestData: any) => {
         this.pushLog('Received LOAD message');
         this.pushLog('Media URL: ' + loadRequestData?.media?.contentId);
         this.pushLog('Media MIME: ' + loadRequestData?.media?.contentType);
+        this.isPlaying.set(false);
         this.nextItemTitle.set(null);
         this.nextItemThumbnail.set(null);
 

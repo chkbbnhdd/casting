@@ -3,7 +3,9 @@
   <cast-media-player></cast-media-player>
 
   <div class="logo">
-    <img src="/dr_logo.svg" alt="DR logo" />
+    @if (!isPlaying()) {
+      <img src="/dr_logo.svg" alt="DR logo" />
+    }
   </div>
 
   <section class="info" aria-live="polite">
