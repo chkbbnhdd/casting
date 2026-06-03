@@ -20,10 +20,18 @@ export interface VideoDraft {
 
 const sampleVideos: CastMediaItem[] = [
   createMediaItem({
-    id: 'apple-hls-test',
-    title: 'Apple HLS Test (fMP4)',
-    subtitle: 'Public test stream — known-good HLS',
-    url: 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
+    id: 'bbb-mp4',
+    title: 'Big Buck Bunny (MP4)',
+    subtitle: 'Baseline MP4 test — no HLS',
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    mimeType: 'video/mp4',
+    posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+  }),
+  createMediaItem({
+    id: 'mux-hls-test',
+    title: 'Mux HLS Test (fMP4)',
+    subtitle: 'Public HLS test stream — Big Buck Bunny',
+    url: 'https://stream.mux.com/v69RSHhFelSm4701snP22dYz2jICy4E4S.m3u8',
     mimeType: 'application/x-mpegURL',
     posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
   }),
