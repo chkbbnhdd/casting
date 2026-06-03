@@ -1,22 +1,29 @@
 
 <main class="receiver-root">
   <cast-media-player></cast-media-player>
-  
-  @if (!isPlaying()) {
-      <div class="logo">
-        <img src="/dr_logo.svg" alt="DR logo" />
-      </div>
 
-    <section class="info" aria-live="polite">
-      <p class="eyebrow">DR Cast Receiver</p>
-    </section>
+  <div class="logo">
+    <img src="/dr_logo.svg" alt="DR logo" />
+  </div>
 
-    <section class="diagnostics">
-      <pre aria-live="polite">
-        @for (log of logs(); track $index) {
-          {{ log }}
-        }
-      </pre>
-    </section>
-  }
+  <section class="info" aria-live="polite">
+
+    @if (nextItemTitle() && nextItemThumbnail()) {
+      <aside class="next-up" aria-label="Next in queue">
+        <p class="next-label">Next up</p>
+        <div class="next-item">
+          <img class="next-thumbnail" [src]="nextItemThumbnail()!" [alt]="nextItemTitle()!" />
+          <p class="next-title">{{ nextItemTitle() }}</p>
+        </div>
+      </aside>
+    }
+  </section>
+
+  <section class="diagnostics">
+    <pre aria-live="polite">
+@for (log of logs(); track $index) {
+{{ log }}
+}
+    </pre>
+  </section>
 </main>
