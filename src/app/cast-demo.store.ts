@@ -25,7 +25,7 @@ const sampleVideos: CastMediaItem[] = [
     subtitle: 'Open-CORS HLS stream — confirms HLS works',
     url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
     mimeType: 'application/x-mpegURL',
-    posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+    posterUrl: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Big.Buck.Bunny.-.Opening.Screen.png',
   }),
   createMediaItem({
     id: 'nak-aed',
