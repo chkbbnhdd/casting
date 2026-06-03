@@ -134,8 +134,12 @@ function createMediaInfo(item: CastMediaItem, chromeCastWindow: ChromeCastWindow
   if (item.subtitle) {
     metadata.subtitle = item.subtitle;
   }
-  if (item.posterUrl) {
-    metadata.images = [new mediaNamespace.Image(item.posterUrl)];
+  if (item.posterUrl && typeof mediaNamespace.Image === 'function') {
+    try {
+      metadata.images = [new mediaNamespace.Image(item.posterUrl)];
+    } catch (error) {
+      console.warn('Failed to create Cast Image object for posterUrl:', error);
+    }
   }
 
   mediaInfo.metadata = metadata;
