@@ -39,8 +39,9 @@ cast-media-player {
   --controls-display: none;
   --controls-opacity: 0;
   --controls-background: transparent;
-  clip-path: inset(0 0 50px 0);
-  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 cast-media-player::part(media-element) {
@@ -56,6 +57,8 @@ cast-media-player::part(progress-bar) {
   width: 0 !important;
   opacity: 0 !important;
   visibility: hidden !important;
+  position: fixed !important;
+  bottom: -1000px !important;
 }
 
 .custom-controls {
