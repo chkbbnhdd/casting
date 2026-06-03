@@ -2,21 +2,21 @@
 <main class="receiver-root">
   <cast-media-player></cast-media-player>
   
-  <div class="logo">
-    <img src="/dr_logo.svg" alt="DR logo" />
-  </div>
+  @if (!isPlaying()) {
+      <div class="logo">
+        <img src="/dr_logo.svg" alt="DR logo" />
+      </div>
 
-  <section class="info">
-    <p class="eyebrow">DR Cast Receiver</p>
-    <h1>{{ title() }}</h1>
-    <p id="subtitle">{{ subtitle() }}</p>
-  </section>
+    <section class="info" aria-live="polite">
+      <p class="eyebrow">DR Cast Receiver</p>
+    </section>
 
-  <section class="diagnostics">
-    <pre aria-live="polite">
-@for (log of logs(); track $index) {
-{{ log }}
-}
-    </pre>
-  </section>
+    <section class="diagnostics">
+      <pre aria-live="polite">
+        @for (log of logs(); track $index) {
+          {{ log }}
+        }
+      </pre>
+    </section>
+  }
 </main>
