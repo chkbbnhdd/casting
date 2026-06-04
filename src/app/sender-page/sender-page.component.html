@@ -102,58 +102,6 @@
             <button type="button" class="ghost" (click)="store.addAllSamples()">Add all samples</button>
           </header>
 
-          <div class="composer-grid">
-            <label>
-              <span>Title</span>
-              <input
-                type="text"
-                [ngModel]="draft().title"
-                (ngModelChange)="onDraftChange('title', $event)"
-                placeholder="Video title"
-              />
-            </label>
-
-            <label>
-              <span>Source URL</span>
-              <input
-                type="url"
-                [ngModel]="draft().url"
-                (ngModelChange)="onDraftChange('url', $event)"
-                placeholder="https://example.com/video.mp4"
-              />
-            </label>
-
-            <label>
-              <span>MIME type</span>
-              <input
-                type="text"
-                [ngModel]="draft().mimeType"
-                (ngModelChange)="onDraftChange('mimeType', $event)"
-                placeholder="video/mp4"
-              />
-            </label>
-
-            <label>
-              <span>Subtitle</span>
-              <input
-                type="text"
-                [ngModel]="draft().subtitle"
-                (ngModelChange)="onDraftChange('subtitle', $event)"
-                placeholder="Optional subtitle"
-              />
-            </label>
-
-            <label class="span-two">
-              <span>Poster URL</span>
-              <input
-                type="url"
-                [ngModel]="draft().posterUrl"
-                (ngModelChange)="onDraftChange('posterUrl', $event)"
-                placeholder="https://example.com/poster.jpg"
-              />
-            </label>
-          </div>
-
           <div class="action-row compact">
             <button type="button" class="primary" (click)="store.addDraftVideo()">Add to queue</button>
             <button type="button" class="secondary" (click)="store.playSelected()">Play selected</button>
