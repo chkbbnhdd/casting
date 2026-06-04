@@ -89,6 +89,9 @@
             <button type="button" class="ghost" (click)="store.pause()">Pause</button>
             <button type="button" class="ghost" (click)="store.stop()">Stop</button>
             <button type="button" class="ghost danger" (click)="store.disconnect()">Stop cast</button>
+             <button type="button" class="secondary" (click)="testConfigUrl()" [disabled]="isTestingConfigUrl()">
+              {{ isTestingConfigUrl() ? 'Testing config URL...' : 'Test DR Config URL' }}
+            </button>
           </div>
            
         </div>
@@ -190,9 +193,7 @@
             <button type="button" class="ghost" (click)="store.nextItem()">Next</button>
             <button type="button" class="ghost" (click)="store.sendQueue()">Sync queue</button>
             <button type="button" class="ghost" (click)="store.clearQueue()">{{ state().uiOverrides.secondaryActionLabel }}</button>
-            <button type="button" class="secondary" (click)="testConfigUrl()" [disabled]="isTestingConfigUrl()">
-              {{ isTestingConfigUrl() ? 'Testing config URL...' : 'Test DR Config URL' }}
-            </button>
+           
           </footer>
 
           @if (configTestResponse()) {
