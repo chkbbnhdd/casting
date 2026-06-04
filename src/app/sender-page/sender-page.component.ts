@@ -11,7 +11,7 @@ import { CastDemoStore, VideoDraft } from '../cast-demo.store';
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class SenderPageComponent {
-  protected readonly title = 'DR Cast Tester';
+  protected readonly title = 'DR Sender Cast Tester';
   protected readonly store = inject(CastDemoStore);
   protected readonly queueItems = this.store.queueItems;
   protected readonly activeItem = this.store.activeItem;
@@ -21,12 +21,6 @@ export class SenderPageComponent {
   protected readonly launcherDiagnostics = this.store.launcherDiagnostics;
   protected readonly draft = this.store.draft;
   protected readonly sampleVideos = this.store.sampleVideos;
-  protected readonly highlights = [
-    'Queue strategy first',
-    'Angular as the test harness',
-    'Ready for native adapters',
-  ];
-
   protected onDraftChange(field: keyof VideoDraft, value: string): void {
     this.store.updateDraft({ [field]: value } as Partial<VideoDraft>);
   }

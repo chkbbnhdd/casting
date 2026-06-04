@@ -35,6 +35,10 @@ cast-media-player {
   --progress-color: transparent;
   --progress-buffered-color: transparent;
   --progress-thumb-color: transparent;
+  --spinner-image: none;
+  --buffering-image: none;
+  --pause-image: none;
+  --play-image: none;
   --splash-color: #000;
   --controls-display: none;
   --controls-opacity: 0;
@@ -51,7 +55,13 @@ cast-media-player::part(media-element) {
 cast-media-player::part(progress),
 cast-media-player::part(controls),
 cast-media-player::part(progress-bar-container),
-cast-media-player::part(progress-bar) {
+cast-media-player::part(progress-bar),
+cast-media-player::part(play-pause-button),
+cast-media-player::part(play-button),
+cast-media-player::part(pause-button),
+cast-media-player::part(spinner),
+cast-media-player::part(buffering-indicator),
+cast-media-player::part(seek-bar) {
   display: none !important;
   height: 0 !important;
   width: 0 !important;

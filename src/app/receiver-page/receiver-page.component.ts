@@ -123,6 +123,12 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       const playerManager = context.getPlayerManager();
       const MessageType = window.cast.framework.messages.MessageType;
 
+      const controls = window.cast?.framework?.ui?.Controls?.getInstance?.();
+      if (controls?.clearDefaultSlotAssignments) {
+        controls.clearDefaultSlotAssignments();
+        this.pushLog('Disabled default cast-media-player overlay controls');
+      }
+
       playerManager.setMessageInterceptor(MessageType.LOAD, (loadRequestData: any) => {
         this.pushLog('Received LOAD message');
         this.pushLog('contentId: ' + loadRequestData?.media?.contentId);

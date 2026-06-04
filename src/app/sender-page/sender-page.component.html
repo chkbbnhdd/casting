@@ -7,14 +7,6 @@
       </header>
 
       <section class="hero panel">
-       
-
-        <div class="highlights">
-          @for (item of highlights; track item) {
-            <span class="highlight">{{ item }}</span>
-          }
-        </div>
-
         <div class="hero-metrics">
           <div>
             <strong>{{ queueCount() }}</strong>
@@ -74,6 +66,7 @@
         </div>
 
         <div class="action-row">
+          
           <button
             type="button"
             class="cast-launcher primary"
@@ -88,7 +81,16 @@
           </button>
           <button type="button" class="secondary" (click)="store.sendQueue()">{{ state().uiOverrides.primaryActionLabel }}</button>
           <button type="button" class="ghost" (click)="openReceiverPreview()">Open receiver page</button>
-          <button type="button" class="ghost" (click)="store.clearQueue()">{{ state().uiOverrides.secondaryActionLabel }}</button>
+        
+        
+
+          <div>
+            <button type="button" class="secondary" (click)="store.playSelected()">Play selected</button>
+            <button type="button" class="ghost" (click)="store.pause()">Pause</button>
+            <button type="button" class="ghost" (click)="store.stop()">Stop</button>
+            <button type="button" class="ghost danger" (click)="store.disconnect()">Stop cast</button>
+          </div>
+           
         </div>
       </section>
 
@@ -97,18 +99,12 @@
           <header>
             <div>
               <p class="section-label">Queue composer</p>
-              <h2>Build a multi-video queue</h2>
             </div>
+              <div>
             <button type="button" class="ghost" (click)="store.addAllSamples()">Add all samples</button>
-          </header>
-
-          <div class="action-row compact">
             <button type="button" class="primary" (click)="store.addDraftVideo()">Add to queue</button>
-            <button type="button" class="secondary" (click)="store.playSelected()">Play selected</button>
-            <button type="button" class="ghost" (click)="store.pause()">Pause</button>
-            <button type="button" class="ghost" (click)="store.stop()">Stop</button>
-            <button type="button" class="ghost danger" (click)="store.disconnect()">Stop cast</button>
           </div>
+          </header>
 
           <div class="sample-grid">
             @for (sample of sampleVideos; track sample.id) {
@@ -193,6 +189,7 @@
             <button type="button" class="ghost" (click)="store.previousItem()">Previous</button>
             <button type="button" class="ghost" (click)="store.nextItem()">Next</button>
             <button type="button" class="ghost" (click)="store.sendQueue()">Sync queue</button>
+            <button type="button" class="ghost" (click)="store.clearQueue()">{{ state().uiOverrides.secondaryActionLabel }}</button>
           </footer>
         </article>
       </section>
