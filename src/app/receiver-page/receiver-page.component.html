@@ -22,6 +22,32 @@
     </aside>
   }
 
+  @if (showProgressBarLogo()) {
+    <div class="custom-controls" aria-hidden="true">
+      <div class="custom-controls-top">
+        <div class="custom-controls-meta">
+          <span class="custom-controls-title">{{ title() }}</span>
+          <span class="custom-controls-subtitle">{{ subtitle() }}</span>
+        </div>
+        <div class="custom-controls-time">
+          <span>{{ formatTime(currentTimeSec()) }}</span>
+          <span class="custom-controls-time-sep">/</span>
+          <span>{{ formatTime(durationSec()) }}</span>
+        </div>
+      </div>
+      <div class="custom-controls-track">
+        <div
+          class="custom-controls-fill"
+          [style.width.%]="durationSec() > 0 ? (currentTimeSec() / durationSec()) * 100 : 0"
+        ></div>
+        <div
+          class="custom-controls-buffered"
+          [style.width.%]="0"
+        ></div>
+      </div>
+    </div>
+  }
+
   <section class="info" aria-live="polite">
 
     @if (showNextUp() && nextItemTitle() && nextItemThumbnail()) {
@@ -33,13 +59,5 @@
         </div>
       </aside>
     }
-  </section>
-
-  <section class="diagnostics">
-    <pre aria-live="polite">
-@for (log of logs(); track $index) {
-{{ log }}
-}
-    </pre>
   </section>
 </main>
