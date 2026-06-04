@@ -29,7 +29,7 @@
   --progress-bg: rgba(255, 0, 0, 0.2);
 }
 
-cast-media-player {
+.cast-media-element {
   background: #000;
   --background-color: #000;
   --progress-color: transparent;
@@ -50,41 +50,7 @@ cast-media-player {
   width: 100%;
   height: 100%;
   display: block;
-}
-
-cast-media-player::part(media-element) {
-  background: #000;
-}
-
-cast-media-player::part(progress),
-cast-media-player::part(controls),
-cast-media-player::part(progress-bar-container),
-cast-media-player::part(progress-bar),
-cast-media-player::part(controls-container),
-cast-media-player::part(bottom-controls),
-cast-media-player::part(metadata),
-cast-media-player::part(metadata-container),
-cast-media-player::part(title),
-cast-media-player::part(subtitle),
-cast-media-player::part(time),
-cast-media-player::part(time-info),
-cast-media-player::part(current-time),
-cast-media-player::part(duration),
-cast-media-player::part(scrim),
-cast-media-player::part(play-pause-button),
-cast-media-player::part(play-button),
-cast-media-player::part(pause-button),
-cast-media-player::part(spinner),
-cast-media-player::part(buffering-indicator),
-cast-media-player::part(seek-bar) {
-  display: none !important;
-  height: 0 !important;
-  width: 0 !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  position: fixed !important;
-  bottom: -1000px !important;
-  pointer-events: none !important;
+  object-fit: contain;
 }
 
 .custom-controls {
