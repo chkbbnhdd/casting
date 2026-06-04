@@ -6,18 +6,19 @@
     @if (!isPlaying()) {
       <img src="/dr_logo.svg" alt="DR logo" />
       <p class="idle-message">Du kan nu caste på dit TV</p>
-      <div class="promo-spots" aria-label="Promoted content">
-        <article class="promo-spot">
-          <img src="/dr_logo.svg" alt="Promoted content spot 1" />
-          <div class="promo-spot-caption">Promotion spot 1</div>
-        </article>
-        <article class="promo-spot">
-          <img src="/dr_logo.svg" alt="Promoted content spot 2" />
-          <div class="promo-spot-caption">Promotion spot 2</div>
-        </article>
-      </div>
     }
   </div>
+
+  @if (!isPlaying()) {
+    <aside class="promo-rail" aria-label="Promoted content">
+      <article class="promo-spot">
+        <img src="/spot%201.png" alt="Promoted content spot 1" />
+      </article>
+      <article class="promo-spot">
+        <img src="/spot%202.png" alt="Promoted content spot 2" />
+      </article>
+    </aside>
+  }
 
   @if (showProgressBarLogo()) {
     <div class="custom-controls" aria-hidden="true">
