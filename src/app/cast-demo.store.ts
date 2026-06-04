@@ -28,6 +28,14 @@ const sampleVideos: CastMediaItem[] = [
     posterUrl: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Big.Buck.Bunny.-.Opening.Screen.png',
   }),
   createMediaItem({
+    id: 'mux-hls-short-test',
+    title: 'Mux HLS Short Test',
+    subtitle: 'Short ~47s HLS test stream (issue666)',
+    url: 'https://test-streams.mux.dev/issue666/playlists/cisq0gim60007xzvi505emlxx.m3u8',
+    mimeType: 'application/x-mpegURL',
+    posterUrl: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Big.Buck.Bunny.-.Opening.Screen.png',
+  }),
+  createMediaItem({
     id: 'nak-aed',
     title: 'Nak & Æd',
     subtitle: 'Nak & Æd: En bushbuck i Zambia',
