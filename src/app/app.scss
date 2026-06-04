@@ -172,6 +172,42 @@ h1 {
   line-height: 1.5;
 }
 
+.config-test-panel {
+  margin-top: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.config-test-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.config-test-error {
+  color: #ff8b8b;
+  font-size: 0.85rem;
+}
+
+.config-test-output {
+  margin: 0;
+  padding: 0.85rem 0.9rem;
+  max-height: 320px;
+  overflow: auto;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #d5e7ff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;

@@ -190,7 +190,22 @@
             <button type="button" class="ghost" (click)="store.nextItem()">Next</button>
             <button type="button" class="ghost" (click)="store.sendQueue()">Sync queue</button>
             <button type="button" class="ghost" (click)="store.clearQueue()">{{ state().uiOverrides.secondaryActionLabel }}</button>
+            <button type="button" class="secondary" (click)="testConfigUrl()" [disabled]="isTestingConfigUrl()">
+              {{ isTestingConfigUrl() ? 'Testing config URL...' : 'Test DR Config URL' }}
+            </button>
           </footer>
+
+          @if (configTestResponse()) {
+            <section class="config-test-panel" aria-live="polite">
+              <div class="config-test-header">
+                <strong>Config URL Response</strong>
+                @if (configTestError()) {
+                  <span class="config-test-error">{{ configTestError() }}</span>
+                }
+              </div>
+              <pre class="config-test-output">{{ configTestResponse() }}</pre>
+            </section>
+          }
         </article>
       </section>
     </main>
