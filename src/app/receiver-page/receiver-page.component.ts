@@ -33,6 +33,11 @@ interface QueueItemRuntimeData {
   accessToken: string | null;
 }
 
+interface QueueItemPreview {
+  title: string | null;
+  thumbnail: string | null;
+}
+
 interface ReceiverDebugState {
   path: string | null;
   pageUrl: string | null;
@@ -421,6 +426,49 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     };
   }
 
+  private async resolveQueueItemPreview(item: any, loadRequestData?: any): Promise<QueueItemPreview> {
+    const runtimeData = this.getQueueItemRuntimeData(item, loadRequestData);
+    const rawPath = runtimeData.path;
+    if (typeof rawPath !== 'string' || !rawPath.trim()) {
+      return {
+        title: item?.title ?? null,
+        thumbnail: item?.posterUrl ?? null,
+      };
+    }
+
+    try {
+      const normalizedPath = rawPath.trim().startsWith('/') ? rawPath.trim() : `/${rawPath.trim()}`;
+      const pageUrl = this.buildPageUrl(normalizedPath);
+      const response = await fetch(pageUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        return {
+          title: item?.title ?? null,
+          thumbnail: item?.posterUrl ?? null,
+        };
+      }
+
+      const pageJson = await response.json();
+      const firstEntry = Array.isArray(pageJson?.entries) ? pageJson.entries[0] : null;
+      const pageItem = firstEntry?.item;
+
+      return {
+        title: firstEntry?.title ?? pageJson?.title ?? item?.title ?? null,
+        thumbnail: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl ?? null,
+      };
+    } catch {
+      return {
+        title: item?.title ?? null,
+        thumbnail: item?.posterUrl ?? null,
+      };
+    }
+  }
+
   private initializeReceiver(): void {
     try {
       const context = window.cast.framework.CastReceiverContext.getInstance();
@@ -517,12 +565,15 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
                 : null;
 
               if (nextItem) {
-                this.nextItemTitle.set(nextItem.title || 'Untitled');
-                this.nextItemThumbnail.set(nextItem.posterUrl || null);
+                const nextItemPreview = await this.resolveQueueItemPreview(nextItem, loadRequestData);
+                this.nextItemTitle.set(nextItemPreview.title || nextItem.title || 'Untitled');
+                this.nextItemThumbnail.set(nextItemPreview.thumbnail || nextItem.posterUrl || null);
+                this.showNextUp.set(true);
                 this.pushLog('Next item queued: ' + (nextItem.title || nextItem.id));
               } else {
                 this.nextItemTitle.set(null);
                 this.nextItemThumbnail.set(null);
+                this.showNextUp.set(false);
               }
             }
           } else if (loadRequestData?.media?.customData?.selectedItemTitle) {
@@ -532,6 +583,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
             this.queueStatus.set('playing');
             this.nextItemTitle.set(null);
             this.nextItemThumbnail.set(null);
+            this.showNextUp.set(false);
             this.pushLog('Showing media.customData.selectedItemTitle: ' + t);
           } else if (loadRequestData?.media) {
             this.title.set(loadRequestData.media?.metadata?.title || 'Playing media');
@@ -539,6 +591,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
             this.queueStatus.set('playing');
             this.nextItemTitle.set(null);
             this.nextItemThumbnail.set(null);
+            this.showNextUp.set(false);
             this.pushLog('Showing media.metadata title');
           }
         } catch (e: any) {
@@ -596,10 +649,6 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         const duration = playerManager.getDurationSec();
         this.currentTimeSec.set(current ?? 0);
         this.durationSec.set(duration ?? 0);
-        if (duration > 0 && this.nextItemTitle()) {
-          const remaining = duration - current;
-          this.showNextUp.set(remaining <= NEXT_UP_PREVIEW_SECONDS);
-        }
       });
 
       context.start();
@@ -639,8 +688,16 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     const nextNextItem = currentIndex + 2 < items.length ? items[currentIndex + 2] : null;
-    this.nextItemTitle.set(nextNextItem?.title ?? null);
-    this.nextItemThumbnail.set(nextNextItem?.posterUrl ?? null);
+    if (nextNextItem) {
+      const nextPreview = await this.resolveQueueItemPreview(nextNextItem);
+      this.nextItemTitle.set(nextPreview.title ?? nextNextItem.title ?? null);
+      this.nextItemThumbnail.set(nextPreview.thumbnail ?? nextNextItem.posterUrl ?? null);
+      this.showNextUp.set(true);
+    } else {
+      this.nextItemTitle.set(null);
+      this.nextItemThumbnail.set(null);
+      this.showNextUp.set(false);
+    }
 
     try {
       const loadReq = new window.cast.framework.messages.LoadRequestData();
