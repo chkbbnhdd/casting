@@ -79,21 +79,10 @@
               <path fill="currentColor" d="M1 18h2c0-4.4 3.6-8 8-8v2C4.5 12 1 15.5 1 18zM1 20h2c0-2.2 1.8-4 4-4v-2C2.7 14 1 15.7 1 20z"/>
             </svg>
           </button>
+          <button type="button" class="ghost danger" (click)="store.disconnect()">Stop cast</button>
+
           <button type="button" class="secondary" (click)="store.sendQueue()">{{ state().uiOverrides.primaryActionLabel }}</button>
           <button type="button" class="ghost" (click)="openReceiverPreview()">Open receiver page</button>
-        
-        
-
-          <div>
-            <button type="button" class="secondary" (click)="store.playSelected()">Play selected</button>
-            <button type="button" class="ghost" (click)="store.pause()">Pause</button>
-            <button type="button" class="ghost" (click)="store.stop()">Stop</button>
-            <button type="button" class="ghost danger" (click)="store.disconnect()">Stop cast</button>
-             <button type="button" class="secondary" (click)="testConfigUrl()" [disabled]="isTestingConfigUrl()">
-              {{ isTestingConfigUrl() ? 'Testing config URL...' : 'Test DR Config URL' }}
-            </button>
-          </div>
-           
         </div>
       </section>
 
@@ -102,9 +91,6 @@
           <header>
             <div>
               <p class="section-label">Queue composer</p>
-            </div>
-            <div>
-              <button type="button" class="primary" (click)="store.addDraftVideo()">Submit path to queue</button>
             </div>
           </header>
 
@@ -125,7 +111,7 @@
                 type="text"
                 [ngModel]="draft().path"
                 (ngModelChange)="onDraftChange('path', $event)"
-                placeholder="/api/items/{id}/videos"
+                placeholder="path to media resource, e.g. /se/skattejaegerne_192328"
               />
             </label>
 
@@ -148,6 +134,13 @@
             </div>
             <div class="status-chip" [class.connected]="state().connected">{{ state().statusMessage }}</div>
           </header>
+
+          <div>
+            <button type="button" class="secondary" (click)="store.playSelected()">Play selected</button>
+            <button type="button" class="ghost" (click)="store.pause()">Pause</button>
+            <button type="button" class="ghost" (click)="store.stop()">Stop</button>
+          </div>
+          <br> 
 
           @if (state().lastError) {
             <div class="error-banner" role="alert">
@@ -209,18 +202,6 @@
             <button type="button" class="ghost" (click)="store.clearQueue()">{{ state().uiOverrides.secondaryActionLabel }}</button>
            
           </footer>
-
-          @if (configTestResponse()) {
-            <section class="config-test-panel" aria-live="polite">
-              <div class="config-test-header">
-                <strong>Config URL Response</strong>
-                @if (configTestError()) {
-                  <span class="config-test-error">{{ configTestError() }}</span>
-                }
-              </div>
-              <pre class="config-test-output">{{ configTestResponse() }}</pre>
-            </section>
-          }
         </article>
       </section>
     </main>

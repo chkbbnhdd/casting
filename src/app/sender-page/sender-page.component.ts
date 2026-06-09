@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CastDemoStore, VideoDraft } from '../cast-demo.store';
-import { ConfigService } from '../services/config.service';
 
 @Component({
   selector: 'app-sender-page',
@@ -22,7 +21,6 @@ export class SenderPageComponent {
 
   protected readonly title = 'DR Sender Cast Tester';
   protected readonly store = inject(CastDemoStore);
-  private readonly configService = inject(ConfigService);
   protected readonly queueItems = this.store.queueItems;
   protected readonly activeItem = this.store.activeItem;
   protected readonly queueCount = this.store.queueCount;
@@ -30,9 +28,6 @@ export class SenderPageComponent {
   protected readonly logs = this.store.logs;
   protected readonly launcherDiagnostics = this.store.launcherDiagnostics;
   protected readonly draft = this.store.draft;
-  protected readonly isTestingConfigUrl = signal(false);
-  protected readonly configTestResponse = signal<string>('');
-  protected readonly configTestError = signal<string | null>(null);
 
   protected onDraftChange(field: keyof VideoDraft, value: string): void {
     this.store.updateDraft({ [field]: value } as Partial<VideoDraft>);
@@ -42,28 +37,6 @@ export class SenderPageComponent {
     const randomIndex = Math.floor(Math.random() * this.randomPaths.length);
     const randomPath = this.randomPaths[randomIndex] ?? this.randomPaths[0];
     this.store.updateDraft({ path: randomPath });
-  }
-
-  protected async testConfigUrl(): Promise<void> {
-    this.isTestingConfigUrl.set(true);
-    this.configTestError.set(null);
-    this.configTestResponse.set('');
-
-    try {
-      const result = await this.configService.testConfig();
-
-      if (result.isError) {
-        this.configTestError.set(result.errorMessage ?? 'Request failed.');
-      }
-
-      this.configTestResponse.set(result.rendered);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.configTestError.set(message);
-      this.configTestResponse.set(`Request failed: ${message}`);
-    } finally {
-      this.isTestingConfigUrl.set(false);
-    }
   }
 
   protected openReceiverPreview(): void {
