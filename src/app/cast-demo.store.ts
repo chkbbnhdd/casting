@@ -11,11 +11,8 @@ import {
 } from '../sdk';
 
 export interface VideoDraft {
-  title: string;
-  url: string;
-  mimeType: string;
-  subtitle: string;
-  posterUrl: string;
+  accessToken: string;
+  path: string;
 }
 
 const sampleVideos: CastMediaItem[] = [
@@ -66,7 +63,7 @@ export class CastDemoStore {
   private readonly client = new CastSenderClient(
     new HybridCastTransport(),
     new SequentialQueueStrategy(),
-    sampleVideos.slice(0, 1)
+    []
   );
 
   readonly state = signal(this.client.getState());
@@ -81,11 +78,8 @@ export class CastDemoStore {
   readonly launcherDiagnostics = signal<GoogleCastLauncherDiagnostics>(getGoogleCastLauncherDiagnostics());
 
   readonly draft = signal<VideoDraft>({
-    title: 'Nak & Æd',
-    url: 'https://drod23q.akamaized.net/all/clear/none/b7/614333c4ac5a6114a4eec3b7/00951732070/stream_fmp4/master_manifest.m3u8',
-    mimeType: 'application/x-mpegURL',
-    subtitle: 'Nak & Æd: En bushbuck i Zambia',
-    posterUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+    accessToken: '',
+    path: '',
   });
 
   constructor() {
@@ -152,17 +146,24 @@ export class CastDemoStore {
 
   addDraftVideo(): void {
     const currentDraft = this.draft();
-    if (!currentDraft.title.trim() || !currentDraft.url.trim()) {
+    const trimmedPath = currentDraft.path.trim();
+    if (!trimmedPath) {
       return;
     }
 
+    const cleanedPath = trimmedPath.startsWith('/') ? trimmedPath : `/${trimmedPath}`;
+    const pathLabel = cleanedPath.length > 64 ? `${cleanedPath.slice(0, 64)}...` : cleanedPath;
+
     this.client.enqueue(
       createMediaItem({
-        title: currentDraft.title.trim(),
-        url: currentDraft.url.trim(),
-        mimeType: currentDraft.mimeType.trim() || 'video/mp4',
-        subtitle: currentDraft.subtitle.trim() || undefined,
-        posterUrl: currentDraft.posterUrl.trim() || undefined,
+        title: `Path ${pathLabel}`,
+        subtitle: currentDraft.accessToken.trim() ? 'Token attached' : 'No token',
+        url: cleanedPath,
+        mimeType: 'application/x-mpegURL',
+        customData: {
+          accessToken: currentDraft.accessToken.trim(),
+          path: cleanedPath,
+        },
       })
     );
   }

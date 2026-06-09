@@ -1,0 +1,2311 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Axis Display Content FE API",
+    "description": "Axis Display Content Frontend API v0.1",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v0.1/{tenantId}/config": {
+      "get": {
+        "tags": [
+          "Deltatre.Axis.Display.Content.Frontend.Host.Api"
+        ],
+        "summary": "Get the global configuration for an application. Should be called during app statup.",
+        "description": "This includes things like device and playback rules, classifications, sitemap and subscriptions. You have the option to select specific configuration objects using the 'include' parameter, or if unspecified, getting all configuration.",
+        "operationId": "GetConfig",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "device",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sub",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "segments",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetConfigResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v0.1/{tenantId}/page": {
+      "get": {
+        "tags": [
+          "Deltatre.Axis.Display.Content.Frontend.Host.Api"
+        ],
+        "summary": "Returns a page with the specified path.",
+        "description": "If targeting the search page you must url encode the search term as a parameter using the q key. For example if your browser path looks like /search?q=the then what you pass to this endpoint would look like /page?path=/search%3Fq%3Dthe.",
+        "operationId": "GetPage",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "list_page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "list_page_size_large",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "max_list_prefetch",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "item_detail_expand",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ItemDetailExpandType"
+            }
+          },
+          {
+            "name": "item_detail_select_season",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/SeasonSelectMode"
+            }
+          },
+          {
+            "name": "item_detail_sort_episode",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/EpisodeSortMode"
+            }
+          },
+          {
+            "name": "text_entry_format",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TextEntryFormat"
+            }
+          },
+          {
+            "name": "max_rating",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "device",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sub",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "segments",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "item_detail_include_fields",
+            "in": "query",
+            "description": "\n    A comma delimited list of fields to be included in the response.\n\n    This is only applicable for fields that are not included by default.",
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPageResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActiveSegment": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "pageIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "segmentUsageGroupIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AvailabilityType": {
+        "enum": [
+          "Available",
+          "ComingSoon"
+        ],
+        "type": "string"
+      },
+      "BasicListMetadata": {
+        "type": "object",
+        "properties": {
+          "isProfileList": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChannelImage": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClassificationSummary": {
+        "required": [
+          "code",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CodeTextPair": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "text": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConfigType": {
+        "enum": [
+          "Classification",
+          "Playback",
+          "Sitemap",
+          "Navigation",
+          "Subscription",
+          "General",
+          "Display",
+          "I18n",
+          "Linear",
+          "Profile",
+          "Operations",
+          "Segments",
+          "FeatureFlags"
+        ],
+        "type": "string"
+      },
+      "ContinueWatchingListData": {
+        "type": "object",
+        "properties": {
+          "itemInclusions": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ContinueWatchingListDataExpansion"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContinueWatchingListDataExpansion": {
+        "type": "object",
+        "properties": {
+          "episode": {
+            "$ref": "#/components/schemas/ItemSummary"
+          },
+          "season": {
+            "$ref": "#/components/schemas/ItemSummary"
+          },
+          "show": {
+            "$ref": "#/components/schemas/ItemSummary"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Credit": {
+        "required": [
+          "name",
+          "path",
+          "role"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "character": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DisplayConfig": {
+        "type": "object",
+        "properties": {
+          "themes": {
+            "type": "array",
+            "items": {},
+            "nullable": true
+          },
+          "showLockIcon": {
+            "type": "boolean"
+          },
+          "badgeImageBaseUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EpisodeSortMode": {
+        "enum": [
+          "Asc",
+          "Desc"
+        ],
+        "type": "string"
+      },
+      "FeatureFlags": {
+        "type": "object",
+        "properties": {
+          "mandatoryLoginEnabled": {
+            "type": "boolean"
+          },
+          "oidcFeEnabled": {
+            "type": "boolean"
+          },
+          "useDashPlayerOnTV": {
+            "type": "boolean"
+          },
+          "mtribesEnabled": {
+            "type": "boolean"
+          },
+          "npawEnabled": {
+            "type": "boolean"
+          },
+          "useNewSSOOnSafari": {
+            "type": "boolean"
+          },
+          "useSilentSSO": {
+            "type": "boolean"
+          },
+          "disableNPAW": {
+            "type": "boolean"
+          },
+          "useNewConsent": {
+            "type": "boolean"
+          },
+          "pageCacheExpiration": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "skipEndcredits": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GeneralConfig": {
+        "required": [
+          "currencyCode",
+          "defaultTimeZone"
+        ],
+        "type": "object",
+        "properties": {
+          "websiteUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "currencyCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "facebookAppId": {
+            "type": "string",
+            "nullable": true
+          },
+          "maxUserRatings": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mandatorySignIn": {
+            "type": "boolean"
+          },
+          "defaultTimeZone": {
+            "type": "string",
+            "nullable": true
+          },
+          "itemImageTypes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
+            },
+            "nullable": true
+          },
+          "customFields": {
+            "type": "object",
+            "additionalProperties": {},
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetConfigResult": {
+        "type": "object",
+        "properties": {
+          "sitemap": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PageSummary"
+            },
+            "nullable": true
+          },
+          "navigation": {
+            "$ref": "#/components/schemas/Navigation"
+          },
+          "classification": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Rating"
+            },
+            "nullable": true
+          },
+          "playback": {
+            "$ref": "#/components/schemas/Playback"
+          },
+          "general": {
+            "$ref": "#/components/schemas/GeneralConfig"
+          },
+          "display": {
+            "$ref": "#/components/schemas/DisplayConfig"
+          },
+          "i18n": {
+            "$ref": "#/components/schemas/Internationalization"
+          },
+          "linear": {
+            "$ref": "#/components/schemas/Linear"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "operations": {
+            "$ref": "#/components/schemas/Operations"
+          },
+          "segments": {
+            "$ref": "#/components/schemas/Segments"
+          },
+          "featureFlags": {
+            "$ref": "#/components/schemas/FeatureFlags"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetPageResult": {
+        "required": [
+          "id",
+          "path",
+          "template",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "path": {
+            "$ref": "#/components/schemas/QueryablePath"
+          },
+          "template": {
+            "type": "string",
+            "nullable": true
+          },
+          "key": {
+            "type": "string",
+            "nullable": true
+          },
+          "isStatic": {
+            "type": "boolean"
+          },
+          "isSystemPage": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/PageMetadata"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PageEntry"
+            },
+            "nullable": true
+          },
+          "customFields": {
+            "type": "object",
+            "additionalProperties": {},
+            "nullable": true
+          },
+          "item": {
+            "$ref": "#/components/schemas/ItemDetails"
+          },
+          "list": {
+            "$ref": "#/components/schemas/ItemList"
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Theme"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Internationalization": {
+        "type": "object",
+        "properties": {
+          "languages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Language"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemCustomMetadata": {
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "value": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemDetailExpandType": {
+        "enum": [
+          "All",
+          "Children",
+          "Ancestors"
+        ],
+        "type": "string"
+      },
+      "ItemDetails": {
+        "required": [
+          "id",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "subtype": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "contextualTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "shortDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "tagline": {
+            "type": "string",
+            "nullable": true
+          },
+          "classification": {
+            "$ref": "#/components/schemas/ClassificationSummary"
+          },
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "watchPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "releaseYear": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "episodeCount": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "availableEpisodeCount": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "availableSeasonCount": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "seasonNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "episodeNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "episodeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "showId": {
+            "type": "string",
+            "nullable": true
+          },
+          "showTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "seasonId": {
+            "type": "string",
+            "nullable": true
+          },
+          "channelShortCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasClosedCaptions": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "averageUserRating": {
+            "maximum": 10,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "badge": {
+            "type": "string",
+            "nullable": true
+          },
+          "badgeBackground": {
+            "type": "string",
+            "nullable": true
+          },
+          "badgeForeground": {
+            "type": "string",
+            "nullable": true
+          },
+          "badgeImageKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "sports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "duration": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "customId": {
+            "type": "string",
+            "nullable": true
+          },
+          "eventStartDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "eventEndDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "firstBroadcastDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "round": {
+            "type": "string",
+            "nullable": true
+          },
+          "sequenceNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "yearStart": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "yearEnd": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "gender": {
+            "type": "string",
+            "nullable": true
+          },
+          "country": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "nullable": true
+          },
+          "offers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Offer"
+            },
+            "nullable": true
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Theme"
+            },
+            "nullable": true
+          },
+          "customFields": {
+            "type": "object",
+            "additionalProperties": {},
+            "nullable": true
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemRelationship"
+            },
+            "nullable": true
+          },
+          "trailerWatchPaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "buttonLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "liveItem": {
+            "$ref": "#/components/schemas/ScheduleItemDetails"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "advisoryText": {
+            "type": "string",
+            "nullable": true
+          },
+          "copyright": {
+            "type": "string",
+            "nullable": true
+          },
+          "distributor": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "customMetadata": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemCustomMetadata"
+            },
+            "nullable": true
+          },
+          "genrePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "venue": {
+            "type": "string",
+            "nullable": true
+          },
+          "eventDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "credits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Credit"
+            },
+            "nullable": true
+          },
+          "seasons": {
+            "$ref": "#/components/schemas/ItemList"
+          },
+          "episodes": {
+            "$ref": "#/components/schemas/ItemList"
+          },
+          "season": {
+            "$ref": "#/components/schemas/ItemDetails"
+          },
+          "show": {
+            "$ref": "#/components/schemas/ItemDetails"
+          },
+          "totalUserRatings": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "trailers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemSummary"
+            },
+            "nullable": true
+          },
+          "extensions": {
+            "type": "object",
+            "additionalProperties": {},
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemList": {
+        "required": [
+          "id",
+          "items",
+          "paging",
+          "path",
+          "size"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "shortDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "tagline": {
+            "type": "string",
+            "nullable": true
+          },
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "itemTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemSummary"
+            },
+            "nullable": true
+          },
+          "listMeta": {
+            "$ref": "#/components/schemas/ListMetadata"
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "parameter": {
+            "type": "string",
+            "nullable": true
+          },
+          "paging": {
+            "$ref": "#/components/schemas/Pagination"
+          },
+          "customFields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Theme"
+            },
+            "nullable": true
+          },
+          "listData": {
+            "$ref": "#/components/schemas/ListData"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemRelationship": {
+        "required": [
+          "items",
+          "key"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemSummary"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemSummary": {
+        "required": [
+          "id",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "subtype": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "contextualTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "shortDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "tagline": {
+            "type": "string",
+            "nullable": true
+          },
+          "classification": {
+            "$ref": "#/components/schemas/ClassificationSummary"
+          },
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "watchPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "releaseYear": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "episodeCount": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "availableEpisodeCount": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "availableSeasonCount": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "seasonNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "episodeNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "episodeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "showId": {
+            "type": "string",
+            "nullable": true
+          },
+          "showTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "seasonId": {
+            "type": "string",
+            "nullable": true
+          },
+          "channelShortCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasClosedCaptions": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "averageUserRating": {
+            "maximum": 10,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "badge": {
+            "type": "string",
+            "nullable": true
+          },
+          "badgeBackground": {
+            "type": "string",
+            "nullable": true
+          },
+          "badgeForeground": {
+            "type": "string",
+            "nullable": true
+          },
+          "badgeImageKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "sports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "duration": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "customId": {
+            "type": "string",
+            "nullable": true
+          },
+          "eventStartDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "eventEndDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "firstBroadcastDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "round": {
+            "type": "string",
+            "nullable": true
+          },
+          "sequenceNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "yearStart": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "yearEnd": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "gender": {
+            "type": "string",
+            "nullable": true
+          },
+          "country": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "nullable": true
+          },
+          "offers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Offer"
+            },
+            "nullable": true
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Theme"
+            },
+            "nullable": true
+          },
+          "customFields": {
+            "type": "object",
+            "additionalProperties": {},
+            "nullable": true
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemRelationship"
+            },
+            "nullable": true
+          },
+          "trailerWatchPaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "buttonLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "liveItem": {
+            "$ref": "#/components/schemas/ScheduleItemDetails"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Language": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Linear": {
+        "type": "object",
+        "properties": {
+          "viewingWindowDaysAfter": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "viewingWindowDaysBefore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "scheduleCacheMaxAgeMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "utcOffsetMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "channelsLogo": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelImage"
+            },
+            "nullable": true
+          },
+          "channelGroups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeTextPair"
+            },
+            "nullable": true
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeTextPair"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ListData": {
+        "type": "object",
+        "properties": {
+          "continueWatching": {
+            "$ref": "#/components/schemas/ContinueWatchingListData"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ListMetadata": {
+        "type": "object",
+        "properties": {
+          "isProfileList": {
+            "type": "boolean"
+          },
+          "searchQuery": {
+            "$ref": "#/components/schemas/SearchListQueryOptions"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MenuGroupNavigationItem": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubMenuNavigationItem"
+            },
+            "nullable": true
+          },
+          "depth": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Navigation": {
+        "type": "object",
+        "properties": {
+          "header": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrimaryMenuNavigationItem"
+            },
+            "nullable": true
+          },
+          "footer": {
+            "$ref": "#/components/schemas/PrimaryMenuNavigationItem"
+          },
+          "account": {
+            "$ref": "#/components/schemas/PrimaryMenuNavigationItem"
+          },
+          "mobile": {
+            "$ref": "#/components/schemas/PrimaryMenuNavigationItem"
+          },
+          "tv": {
+            "$ref": "#/components/schemas/PrimaryMenuNavigationItem"
+          }
+        },
+        "additionalProperties": false
+      },
+      "NavigationContent": {
+        "required": [
+          "imageType"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "imageType": {
+            "type": "string",
+            "nullable": true
+          },
+          "list": {
+            "$ref": "#/components/schemas/ItemList"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Offer": {
+        "required": [
+          "availability",
+          "id",
+          "name",
+          "price"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "format": "float"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "availability": {
+            "$ref": "#/components/schemas/AvailabilityType"
+          },
+          "subscriptionCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "customFields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "ownership": {
+            "type": "string",
+            "nullable": true
+          },
+          "deliveryType": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Operations": {
+        "type": "object",
+        "properties": {
+          "segmentUsageGroups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SegmentUsageGroup"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PageEntry": {
+        "required": [
+          "id",
+          "template",
+          "title",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "template": {
+            "type": "string",
+            "nullable": true
+          },
+          "listMeta": {
+            "$ref": "#/components/schemas/BasicListMetadata"
+          },
+          "list": {
+            "$ref": "#/components/schemas/ItemList"
+          },
+          "item": {
+            "$ref": "#/components/schemas/ItemSummary"
+          },
+          "text": {
+            "type": "string",
+            "nullable": true
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Person"
+            },
+            "nullable": true
+          },
+          "customFields": {
+            "type": "object",
+            "additionalProperties": {},
+            "nullable": true
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PageMetadata": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PageSummary": {
+        "required": [
+          "id",
+          "path",
+          "template",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "path": {
+            "$ref": "#/components/schemas/QueryablePath"
+          },
+          "template": {
+            "type": "string",
+            "nullable": true
+          },
+          "key": {
+            "type": "string",
+            "nullable": true
+          },
+          "isStatic": {
+            "type": "boolean"
+          },
+          "isSystemPage": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Pagination": {
+        "required": [
+          "page",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "string",
+            "nullable": true
+          },
+          "previous": {
+            "type": "string",
+            "nullable": true
+          },
+          "page": {
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "maximum": 2147483647,
+            "minimum": -1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "maximum": 2147483647,
+            "minimum": -1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "authorization": {
+            "$ref": "#/components/schemas/PaginationAuth"
+          },
+          "options": {
+            "$ref": "#/components/schemas/PaginationOptions"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PaginationAuth": {
+        "required": [
+          "scope",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "scope": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PaginationOptions": {
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "order": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "maxRating": {
+            "type": "string",
+            "nullable": true
+          },
+          "itemType": {
+            "type": "string",
+            "nullable": true
+          },
+          "completed": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Person": {
+        "required": [
+          "name",
+          "path"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "path": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Playback": {
+        "type": "object",
+        "properties": {
+          "heartbeatFrequency": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "viewEventPoints": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            },
+            "nullable": true
+          },
+          "chainPlaySqueezeback": {
+            "type": "number",
+            "format": "double"
+          },
+          "chainPlayTimeout": {
+            "type": "number",
+            "format": "double"
+          },
+          "chainPlayCountdown": {
+            "type": "number",
+            "format": "double"
+          },
+          "liveStraightToPlayback": {
+            "type": "boolean"
+          },
+          "skipButtonHideThreshold": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PrimaryMenuNavigationItem": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "content": {
+            "$ref": "#/components/schemas/NavigationContent"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MenuGroupNavigationItem"
+            },
+            "nullable": true
+          },
+          "depth": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          },
+          "customFields": {
+            "type": "object",
+            "additionalProperties": {},
+            "nullable": true
+          },
+          "featured": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "logoPosition": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Profile": {
+        "type": "object",
+        "properties": {
+          "maxFollowsPerProfile": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "QueryablePath": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "nullable": true
+          },
+          "regex": {
+            "$ref": "#/components/schemas/Regex"
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Rating": {
+        "required": [
+          "advisoryText",
+          "code",
+          "name",
+          "system"
+        ],
+        "type": "object",
+        "properties": {
+          "images": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "system": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "level": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "advisoryText": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Regex": {
+        "type": "object",
+        "properties": {
+          "options": {
+            "$ref": "#/components/schemas/RegexOptions"
+          },
+          "rightToLeft": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "matchTimeout": {
+            "type": "string",
+            "format": "date-span",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegexOptions": {
+        "enum": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          256,
+          512,
+          1024
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "Role": {
+        "enum": [
+          "actor",
+          "associateproducer",
+          "coactor",
+          "director",
+          "executiveproducer",
+          "filminglocation",
+          "guest",
+          "narrator",
+          "other",
+          "presenter",
+          "producer",
+          "productmanager",
+          "thememusicby",
+          "voice",
+          "writer"
+        ],
+        "type": "string"
+      },
+      "ScheduleItemDetails": {
+        "required": [
+          "channelId",
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "channelId": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "repeat": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "live": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "featured": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "blackout": {
+            "type": "boolean"
+          },
+          "item": {
+            "$ref": "#/components/schemas/ItemDetails"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SearchListQueryOptions": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string",
+            "nullable": true
+          },
+          "maxRating": {
+            "type": "string",
+            "nullable": true
+          },
+          "itemTypes": {
+            "type": "string",
+            "nullable": true
+          },
+          "itemSubTypes": {
+            "type": "string",
+            "nullable": true
+          },
+          "excludeItemSubTypes": {
+            "type": "string",
+            "nullable": true
+          },
+          "device": {
+            "type": "string",
+            "nullable": true
+          },
+          "sub": {
+            "type": "string",
+            "nullable": true
+          },
+          "segments": {
+            "type": "string",
+            "nullable": true
+          },
+          "ff": {
+            "type": "string",
+            "nullable": true
+          },
+          "lang": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SeasonSelectMode": {
+        "enum": [
+          "First",
+          "Latest"
+        ],
+        "type": "string"
+      },
+      "SegmentUsageGroup": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "operationIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Segments": {
+        "type": "object",
+        "properties": {
+          "activeSegments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActiveSegment"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServiceError": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubMenuNavigationItem": {
+        "required": [
+          "label"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "depth": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TextEntryFormat": {
+        "enum": [
+          "Markdown",
+          "Html"
+        ],
+        "type": "string"
+      },
+      "Theme": {
+        "required": [
+          "colors",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "colors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThemeColor"
+            },
+            "nullable": true
+          },
+          "type": {
+            "$ref": "#/components/schemas/ThemeType"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ThemeColor": {
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "opacity": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number",
+            "format": "float",
+            "nullable": true
+          },
+          "value": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ThemeType": {
+        "enum": [
+          "Background",
+          "Text",
+          "Custom"
+        ],
+        "type": "string"
+      }
+    }
+  }
+}

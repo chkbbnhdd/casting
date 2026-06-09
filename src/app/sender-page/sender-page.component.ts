@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CastDemoStore, VideoDraft } from '../cast-demo.store';
+import { ConfigService } from '../services/config.service';
 
 @Component({
   selector: 'app-sender-page',
@@ -11,11 +12,17 @@ import { CastDemoStore, VideoDraft } from '../cast-demo.store';
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class SenderPageComponent {
-  private readonly configUrlUnderTest =
-    'https://prod95-cdn.dr-massive.com/api/config?device=web_browser&ff=idp%2Cldp%2Crpt&include=classification%2Csubscription%2Csitemap%2Cnavigation%2Cgeneral%2Ci18n%2Cplayback%2Clinear%2CfeatureFlags&lang=da&segments=drtv&sub=Registered';
+  private readonly randomPaths = [
+    '/se/fortidens-hemmeligheder_-thomas-delaney_542879',
+    '/se/nak-and-aed_-en-tjur-i-sverige_55454',
+    '/se/manden-i-hullet_-to-spader-og-en-gammel-myte_552595',
+    '/se/skattejaegerne_192328',
+    '/se/indefra-med-anders-agger-_-gaden-i-grenaa_-retten-til-at-gaa-i-hundene_596290',
+  ];
 
   protected readonly title = 'DR Sender Cast Tester';
   protected readonly store = inject(CastDemoStore);
+  private readonly configService = inject(ConfigService);
   protected readonly queueItems = this.store.queueItems;
   protected readonly activeItem = this.store.activeItem;
   protected readonly queueCount = this.store.queueCount;
@@ -23,7 +30,6 @@ export class SenderPageComponent {
   protected readonly logs = this.store.logs;
   protected readonly launcherDiagnostics = this.store.launcherDiagnostics;
   protected readonly draft = this.store.draft;
-  protected readonly sampleVideos = this.store.sampleVideos;
   protected readonly isTestingConfigUrl = signal(false);
   protected readonly configTestResponse = signal<string>('');
   protected readonly configTestError = signal<string | null>(null);
@@ -32,31 +38,25 @@ export class SenderPageComponent {
     this.store.updateDraft({ [field]: value } as Partial<VideoDraft>);
   }
 
+  protected setRandomPath(): void {
+    const randomIndex = Math.floor(Math.random() * this.randomPaths.length);
+    const randomPath = this.randomPaths[randomIndex] ?? this.randomPaths[0];
+    this.store.updateDraft({ path: randomPath });
+  }
+
   protected async testConfigUrl(): Promise<void> {
     this.isTestingConfigUrl.set(true);
     this.configTestError.set(null);
     this.configTestResponse.set('');
 
     try {
-      const response = await fetch(this.configUrlUnderTest, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-      });
+      const result = await this.configService.testConfig();
 
-      const contentType = response.headers.get('content-type') ?? '';
-      const body = contentType.includes('application/json')
-        ? JSON.stringify(await response.json(), null, 2)
-        : await response.text();
-
-      const rendered = `HTTP ${response.status} ${response.statusText}\n\n${body}`;
-
-      if (!response.ok) {
-        this.configTestError.set('Request failed.');
+      if (result.isError) {
+        this.configTestError.set(result.errorMessage ?? 'Request failed.');
       }
 
-      this.configTestResponse.set(rendered);
+      this.configTestResponse.set(result.rendered);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.configTestError.set(message);

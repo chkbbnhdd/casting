@@ -103,22 +103,40 @@
             <div>
               <p class="section-label">Queue composer</p>
             </div>
-              <div>
-            <button type="button" class="ghost" (click)="store.addAllSamples()">Add all samples</button>
-            <button type="button" class="primary" (click)="store.addDraftVideo()">Add to queue</button>
-          </div>
+            <div>
+              <button type="button" class="primary" (click)="store.addDraftVideo()">Submit path to queue</button>
+            </div>
           </header>
 
           <div class="sample-grid">
-            @for (sample of sampleVideos; track sample.id) {
-              <button type="button" class="sample-card" (click)="store.addSampleVideo($index)">
-                <img [src]="sample.posterUrl" [alt]="sample.title" />
-                <div>
-                  <strong>{{ sample.title }}</strong>
-                  <span>{{ sample.subtitle }}</span>
-                </div>
+            <label class="sample-field">
+              <span>Access Token</span>
+              <textarea
+                rows="4"
+                [ngModel]="draft().accessToken"
+                (ngModelChange)="onDraftChange('accessToken', $event)"
+                placeholder="Paste access token"
+              ></textarea>
+            </label>
+
+            <label class="sample-field">
+              <span>Path</span>
+              <input
+                type="text"
+                [ngModel]="draft().path"
+                (ngModelChange)="onDraftChange('path', $event)"
+                placeholder="/api/items/{id}/videos"
+              />
+            </label>
+
+            <div class="sample-actions">
+              <button type="button" class="secondary sample-submit" (click)="store.addDraftVideo()">
+                Add path to queue
               </button>
-            }
+              <button type="button" class="ghost sample-submit" (click)="setRandomPath()">
+                Get random path
+              </button>
+            </div>
           </div>
         </article>
 

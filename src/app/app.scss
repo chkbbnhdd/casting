@@ -378,6 +378,49 @@ button {
   margin-top: 1rem;
 }
 
+.sample-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.sample-field span {
+  color: rgba(247, 244, 238, 0.72);
+  font-size: 0.9rem;
+}
+
+.sample-field input,
+.sample-field textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  outline: none;
+  font: inherit;
+}
+
+.sample-field textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.sample-field input:focus,
+.sample-field textarea:focus {
+  border-color: rgba(255, 138, 61, 0.7);
+  box-shadow: 0 0 0 4px rgba(255, 138, 61, 0.18);
+}
+
+.sample-submit {
+  justify-self: start;
+}
+
+.sample-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .sample-card {
   display: grid;
   grid-template-columns: 72px 1fr;
