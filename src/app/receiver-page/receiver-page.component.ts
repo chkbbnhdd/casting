@@ -207,6 +207,21 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     this.pushLog(summary);
   }
 
+  private updateNextUpVisibility(currentTimeSec: number = this.currentTimeSec(), durationSec: number = this.durationSec()): void {
+    if (!this.nextItemTitle() || !this.nextItemThumbnail()) {
+      this.showNextUp.set(false);
+      return;
+    }
+
+    if (!isFinite(durationSec) || durationSec <= 0) {
+      this.showNextUp.set(false);
+      return;
+    }
+
+    const remainingSeconds = durationSec - currentTimeSec;
+    this.showNextUp.set(remainingSeconds >= 0 && remainingSeconds <= NEXT_UP_PREVIEW_SECONDS);
+  }
+
   private async loadConfigResponse(): Promise<void> {
     try {
       this.pushLog('Fetching receiver config');
@@ -458,7 +473,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       const pageItem = firstEntry?.item;
 
       return {
-        title: firstEntry?.title ?? pageJson?.title ?? item?.title ?? null,
+        title: pageJson?.title ?? firstEntry?.title ?? null,
         thumbnail: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl ?? null,
       };
     } catch {
@@ -566,9 +581,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
               if (nextItem) {
                 const nextItemPreview = await this.resolveQueueItemPreview(nextItem, loadRequestData);
-                this.nextItemTitle.set(nextItemPreview.title || nextItem.title || 'Untitled');
+                this.nextItemTitle.set(nextItemPreview.title || 'Untitled');
                 this.nextItemThumbnail.set(nextItemPreview.thumbnail || nextItem.posterUrl || null);
-                this.showNextUp.set(true);
+                nextItem.posterUrl = nextItemPreview.thumbnail || nextItem.posterUrl || null;
+                this.updateNextUpVisibility();
                 this.pushLog('Next item queued: ' + (nextItem.title || nextItem.id));
               } else {
                 this.nextItemTitle.set(null);
@@ -649,6 +665,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         const duration = playerManager.getDurationSec();
         this.currentTimeSec.set(current ?? 0);
         this.durationSec.set(duration ?? 0);
+        this.updateNextUpVisibility(current ?? 0, duration ?? 0);
       });
 
       context.start();
@@ -690,9 +707,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     const nextNextItem = currentIndex + 2 < items.length ? items[currentIndex + 2] : null;
     if (nextNextItem) {
       const nextPreview = await this.resolveQueueItemPreview(nextNextItem);
-      this.nextItemTitle.set(nextPreview.title ?? nextNextItem.title ?? null);
+      this.nextItemTitle.set(nextPreview.title ?? null);
       this.nextItemThumbnail.set(nextPreview.thumbnail ?? nextNextItem.posterUrl ?? null);
-      this.showNextUp.set(true);
+      nextNextItem.posterUrl = nextPreview.thumbnail ?? nextNextItem.posterUrl ?? null;
+      this.updateNextUpVisibility();
     } else {
       this.nextItemTitle.set(null);
       this.nextItemThumbnail.set(null);
