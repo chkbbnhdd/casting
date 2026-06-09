@@ -2,6 +2,54 @@
 <main class="receiver-root">
   <video class="cast-media-element castMediaElement" autoplay playsinline></video>
 
+  @if (showDebugOverlay) {
+    <aside class="receiver-debug" aria-label="Receiver debug overlay">
+      <p class="receiver-debug-title">Receiver debug</p>
+      <dl class="receiver-debug-grid">
+        <div>
+          <dt>Path</dt>
+          <dd>{{ debugState().path ?? '-' }}</dd>
+        </div>
+        <div>
+          <dt>Page status</dt>
+          <dd>{{ debugState().pageStatus ?? '-' }}</dd>
+        </div>
+        <div>
+          <dt>Item id</dt>
+          <dd>{{ debugState().itemId ?? '-' }}</dd>
+        </div>
+        <div>
+          <dt>Video status</dt>
+          <dd>{{ debugState().videoStatus ?? '-' }}</dd>
+        </div>
+        <div class="receiver-debug-span">
+          <dt>Page URL</dt>
+          <dd>{{ debugState().pageUrl ?? '-' }}</dd>
+        </div>
+        <div class="receiver-debug-span">
+          <dt>Video URL</dt>
+          <dd>{{ debugState().videoUrl ?? '-' }}</dd>
+        </div>
+        <div class="receiver-debug-span">
+          <dt>Stream URL</dt>
+          <dd>{{ debugState().streamUrl ?? '-' }}</dd>
+        </div>
+        <div>
+          <dt>Content type</dt>
+          <dd>{{ debugState().contentType ?? '-' }}</dd>
+        </div>
+        <div>
+          <dt>Player state</dt>
+          <dd>{{ debugState().playerState ?? '-' }}</dd>
+        </div>
+        <div class="receiver-debug-span">
+          <dt>Last error</dt>
+          <dd>{{ debugState().lastError ?? '-' }}</dd>
+        </div>
+      </dl>
+    </aside>
+  }
+
   @if (receiverError()) {
     <div class="receiver-error" role="alert" aria-live="assertive">
       <div class="receiver-error-inner">

@@ -56,6 +56,61 @@
   object-fit: cover;
 }
 
+.receiver-debug {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 250;
+  width: min(640px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  background: rgba(5, 8, 12, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(14px);
+}
+
+.receiver-debug-title {
+  margin: 0 0 0.85rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.receiver-debug-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
+
+.receiver-debug-grid div {
+  min-width: 0;
+}
+
+.receiver-debug-span {
+  grid-column: 1 / -1;
+}
+
+.receiver-debug dt {
+  margin: 0 0 0.2rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.receiver-debug dd {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #f5f7fb;
+  word-break: break-word;
+}
+
 .custom-controls {
   position: fixed;
   bottom: 0;

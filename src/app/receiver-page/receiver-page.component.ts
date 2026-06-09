@@ -12,6 +12,7 @@ declare global {
 const CAST_RECEIVER_SCRIPT_URL = 'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js';
 const NEXT_UP_PREVIEW_SECONDS = 30;
 const CONTROLS_HIDE_DELAY_MS = 5000;
+const SHOW_DEBUG_OVERLAY = true;
 const CONFIG_ENDPOINT_URL = 'https://prod95-cdn.dr-massive.com/api/config?device=chromecast&ff=idp%2Cldp%2Crpt&include=classification%2Csubscription%2Csitemap%2Cnavigation%2Cgeneral%2Ci18n%2Cplayback%2Clinear%2CfeatureFlags&lang=da&segments=drtv&sub=Registered';
 const PAGE_ENDPOINT_BASE_URL = 'https://prod95-cdn.dr-massive.com/api/page';
 const VIDEO_ENDPOINT_BASE_URL = 'https://prod95.dr-massive.com/api/account/items';
@@ -29,6 +30,19 @@ interface ResolvedPlayback {
 interface QueueItemRuntimeData {
   path: string | null;
   accessToken: string | null;
+}
+
+interface ReceiverDebugState {
+  path: string | null;
+  pageUrl: string | null;
+  pageStatus: number | null;
+  itemId: string | null;
+  videoUrl: string | null;
+  videoStatus: number | null;
+  streamUrl: string | null;
+  contentType: string | null;
+  playerState: string | null;
+  lastError: string | null;
 }
 
 function loadReceiverFramework(): Promise<void> {
@@ -79,6 +93,7 @@ function loadReceiverFramework(): Promise<void> {
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class ReceiverPageComponent implements OnInit, OnDestroy {
+  protected readonly showDebugOverlay = SHOW_DEBUG_OVERLAY;
   protected readonly title = signal('Waiting for content');
   protected readonly subtitle = signal('Idle');
   protected readonly receiverError = signal<string | null>(null);
@@ -95,6 +110,18 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly showNextUp = signal(false);
   protected readonly configResponse = signal<unknown | null>(null);
   protected readonly logs = signal<string[]>([]);
+  protected readonly debugState = signal<ReceiverDebugState>({
+    path: null,
+    pageUrl: null,
+    pageStatus: null,
+    itemId: null,
+    videoUrl: null,
+    videoStatus: null,
+    streamUrl: null,
+    contentType: null,
+    playerState: null,
+    lastError: null,
+  });
 
   private storedQueueItems: any[] = [];
   private storedActiveItemId: string | null = null;
@@ -110,6 +137,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     } catch (err: any) {
       const message = err?.message ?? String(err);
       this.receiverError.set(message);
+      this.updateDebugState({ lastError: message });
       this.pushLog('Receiver initialization failed: ' + message);
     }
   }
@@ -156,6 +184,13 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     const entry = `[${new Date().toLocaleTimeString()}] ${message}`;
     this.logs.update((current) => [entry, ...current].slice(0, 200));
     console.log(message);
+  }
+
+  private updateDebugState(patch: Partial<ReceiverDebugState>): void {
+    this.debugState.update((current) => ({
+      ...current,
+      ...patch,
+    }));
   }
 
   private async loadConfigResponse(): Promise<void> {
@@ -260,6 +295,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     loadRequestData.media.contentUrl = resolvedPlayback.streamUrl;
     loadRequestData.media.contentType = resolvedPlayback.mimeType;
     loadRequestData.media.streamType = 'BUFFERED';
+    this.updateDebugState({
+      streamUrl: resolvedPlayback.streamUrl,
+      contentType: resolvedPlayback.mimeType,
+    });
 
     const metadata = loadRequestData.media.metadata ?? {};
     metadata.title = resolvedPlayback.title ?? metadata.title;
@@ -288,6 +327,17 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     const normalizedPath = rawPath.trim().startsWith('/') ? rawPath.trim() : `/${rawPath.trim()}`;
     const pageUrl = this.buildPageUrl(normalizedPath);
+    this.updateDebugState({
+      path: normalizedPath,
+      pageUrl,
+      pageStatus: null,
+      itemId: null,
+      videoUrl: null,
+      videoStatus: null,
+      streamUrl: null,
+      contentType: null,
+      lastError: null,
+    });
     this.pushLog(`Resolving page for path ${normalizedPath}`);
     this.pushLog(`Page URL: ${pageUrl}`);
 
@@ -299,6 +349,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     });
 
     this.pushLog(`Page response status: ${pageResponse.status}`);
+  this.updateDebugState({ pageStatus: pageResponse.status });
 
     if (!pageResponse.ok) {
       throw new Error(`Page request failed with ${pageResponse.status}`);
@@ -313,12 +364,14 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     this.pushLog(`Resolved item id from page response: ${itemId}`);
+    this.updateDebugState({ itemId });
 
     if (typeof accessToken !== 'string' || !accessToken.trim()) {
       throw new Error('Missing accessToken for protected video endpoint.');
     }
 
     const videoUrl = this.buildVideoUrl(itemId);
+  this.updateDebugState({ videoUrl, videoStatus: null });
     this.pushLog(`Fetching media stream for item ${itemId}`);
     this.pushLog(`Video URL: ${videoUrl}`);
     const videoResponse = await fetch(videoUrl, {
@@ -330,6 +383,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     });
 
     this.pushLog(`Video response status: ${videoResponse.status}`);
+  this.updateDebugState({ videoStatus: videoResponse.status });
 
     if (!videoResponse.ok) {
       throw new Error(`Video request failed with ${videoResponse.status}`);
@@ -343,6 +397,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
+    this.updateDebugState({
+      streamUrl,
+      contentType: this.resolveMimeType(primary),
+    });
 
     return {
       streamUrl,
@@ -460,6 +518,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         } catch (e: any) {
           const message = e?.message ?? String(e);
           this.receiverError.set(message);
+          this.updateDebugState({ lastError: message });
           this.pushLog('Error processing LOAD message: ' + message);
           throw e;
         }
@@ -474,14 +533,18 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       playerManager.addEventListener(EventType.ERROR, (event: any) => {
         const code = event?.detailedErrorCode ?? event?.errorCode ?? 'unknown';
         const reason = event?.reason ?? '';
-        this.receiverError.set(`Playback error (${code})${reason ? `: ${reason}` : ''}`);
+        const message = `Playback error (${code})${reason ? `: ${reason}` : ''}`;
+        this.receiverError.set(message);
+        this.updateDebugState({ lastError: message });
         this.pushLog(`PLAYBACK ERROR: code=${code}${reason ? ' reason=' + reason : ''}`);
       });
       playerManager.addEventListener(EventType.MEDIA_STATUS, (event: any) => {
         const playerState = event?.mediaStatus?.playerState ?? 'unknown';
         this.pushLog('Player state: ' + playerState);
+        this.updateDebugState({ playerState });
         if (playerState === 'PLAYING') {
           this.receiverError.set(null);
+          this.updateDebugState({ lastError: null });
         }
         this.isPlaying.set(playerState === 'PLAYING' || playerState === 'BUFFERING' || playerState === 'LOADING');
         this.updateUiState();
