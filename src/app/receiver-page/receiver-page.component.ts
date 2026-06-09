@@ -16,6 +16,7 @@ const SHOW_DEBUG_OVERLAY = true;
 const CONFIG_ENDPOINT_URL = 'https://prod95-cdn.dr-massive.com/api/config?device=chromecast&ff=idp%2Cldp%2Crpt&include=classification%2Csubscription%2Csitemap%2Cnavigation%2Cgeneral%2Ci18n%2Cplayback%2Clinear%2CfeatureFlags&lang=da&segments=drtv&sub=Registered';
 const PAGE_ENDPOINT_BASE_URL = 'https://prod95-cdn.dr-massive.com/api/page';
 const VIDEO_ENDPOINT_BASE_URL = 'https://prod95.dr-massive.com/api/account/items';
+const VIDEO_ENDPOINT_DEVICE = 'chromecast';
 
 type ReceiverUiState = 'awaiting-cast' | 'connected-idle' | 'playing';
 
@@ -42,6 +43,7 @@ interface ReceiverDebugState {
   streamUrl: string | null;
   contentType: string | null;
   playerState: string | null;
+  lastEvent: string | null;
   lastError: string | null;
 }
 
@@ -120,6 +122,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     streamUrl: null,
     contentType: null,
     playerState: null,
+    lastEvent: null,
     lastError: null,
   });
 
@@ -193,6 +196,12 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }));
   }
 
+  private recordReceiverEvent(eventName: string, details?: string): void {
+    const summary = details ? `${eventName}: ${details}` : eventName;
+    this.updateDebugState({ lastEvent: summary });
+    this.pushLog(summary);
+  }
+
   private async loadConfigResponse(): Promise<void> {
     try {
       this.pushLog('Fetching receiver config');
@@ -239,7 +248,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   private buildVideoUrl(itemId: string): string {
     const query = new URLSearchParams({
       delivery: 'stream',
-      device: 'web_browser',
+      device: VIDEO_ENDPOINT_DEVICE,
       ff: 'idp,ldp,rpt',
       geoLocation: 'dk',
       lang: 'da',
@@ -336,6 +345,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       videoStatus: null,
       streamUrl: null,
       contentType: null,
+      lastEvent: 'Resolving playback from queue item',
       lastError: null,
     });
     this.pushLog(`Resolving page for path ${normalizedPath}`);
@@ -416,33 +426,49 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       const context = window.cast.framework.CastReceiverContext.getInstance();
       const playerManager = context.getPlayerManager();
       const MessageType = window.cast.framework.messages.MessageType;
+      const eventCategory = window.cast?.framework?.events?.category;
 
       const systemEventType = window.cast?.framework?.system?.EventType;
       if (systemEventType?.SENDER_CONNECTED) {
         context.addEventListener(systemEventType.SENDER_CONNECTED, () => {
           this.hasSenderConnected.set(true);
           this.updateUiState();
-          this.pushLog('Sender connected');
+          this.recordReceiverEvent('Sender connected');
         });
       }
       if (systemEventType?.SENDER_DISCONNECTED) {
         context.addEventListener(systemEventType.SENDER_DISCONNECTED, () => {
           this.hasSenderConnected.set(false);
           this.updateUiState();
-          this.pushLog('Sender disconnected');
+          this.recordReceiverEvent('Sender disconnected');
         });
       }
 
       const controls = window.cast?.framework?.ui?.Controls?.getInstance?.();
       if (controls?.clearDefaultSlotAssignments) {
         controls.clearDefaultSlotAssignments();
-        this.pushLog('Disabled default cast-media-player overlay controls');
+        this.recordReceiverEvent('Disabled default cast-media-player overlay controls');
+      }
+
+      if (eventCategory?.CORE) {
+        playerManager.addEventListener(eventCategory.CORE, (event: any) => {
+          const eventType = event?.type ?? 'unknown-core-event';
+          this.recordReceiverEvent(`CORE ${eventType}`);
+        });
+      }
+
+      if (eventCategory?.DEBUG) {
+        playerManager.addEventListener(eventCategory.DEBUG, (event: any) => {
+          const eventType = event?.type ?? 'unknown-debug-event';
+          const code = event?.detailedErrorCode ?? event?.errorCode ?? null;
+          this.recordReceiverEvent(`DEBUG ${eventType}`, code ? `code=${code}` : undefined);
+        });
       }
 
       playerManager.setMessageInterceptor(MessageType.LOAD, async (loadRequestData: any) => {
         this.hasSenderConnected.set(true);
         this.updateUiState();
-        this.pushLog('Received LOAD message');
+        this.recordReceiverEvent('Received LOAD message');
         this.pushLog('contentId: ' + loadRequestData?.media?.contentId);
         this.pushLog('contentUrl: ' + (loadRequestData?.media?.contentUrl ?? '(not set)'));
         this.pushLog('contentType: ' + loadRequestData?.media?.contentType);
@@ -528,6 +554,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
       const EventType = window.cast.framework.events.EventType;
       playerManager.addEventListener(EventType.ENDED, () => {
+        this.recordReceiverEvent('Playback ended');
         this.onCurrentItemEnded(playerManager);
       });
       playerManager.addEventListener(EventType.ERROR, (event: any) => {
@@ -535,12 +562,12 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         const reason = event?.reason ?? '';
         const message = `Playback error (${code})${reason ? `: ${reason}` : ''}`;
         this.receiverError.set(message);
-        this.updateDebugState({ lastError: message });
+        this.updateDebugState({ lastError: message, lastEvent: 'Playback error event' });
         this.pushLog(`PLAYBACK ERROR: code=${code}${reason ? ' reason=' + reason : ''}`);
       });
       playerManager.addEventListener(EventType.MEDIA_STATUS, (event: any) => {
         const playerState = event?.mediaStatus?.playerState ?? 'unknown';
-        this.pushLog('Player state: ' + playerState);
+        this.recordReceiverEvent('Player state', playerState);
         this.updateDebugState({ playerState });
         if (playerState === 'PLAYING') {
           this.receiverError.set(null);
@@ -564,6 +591,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         }
       });
       playerManager.addEventListener(EventType.TIME_UPDATE, () => {
+        this.updateDebugState({ lastEvent: 'Time update received' });
         const current = playerManager.getCurrentTimeSec();
         const duration = playerManager.getDurationSec();
         this.currentTimeSec.set(current ?? 0);
@@ -575,7 +603,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       });
 
       context.start();
-      this.pushLog('Receiver context started');
+      this.recordReceiverEvent('Receiver context started');
     } catch (e: any) {
       this.pushLog('Receiver initialize error: ' + (e?.message ?? String(e)));
     }
