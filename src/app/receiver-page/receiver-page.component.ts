@@ -233,8 +233,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     return pathMatch?.[1] ?? null;
   }
 
-  private inferMimeType(streamUrl: string): string {
-    return streamUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4';
+  private resolveMimeType(_mediaFile: MediaFile): string {
+    return 'application/x-mpegURL';
   }
 
   private getQueueItemRuntimeData(selectedItem: any, loadRequestData?: any): QueueItemRuntimeData {
@@ -346,7 +346,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     return {
       streamUrl,
-      mimeType: this.inferMimeType(streamUrl),
+      mimeType: this.resolveMimeType(primary),
       title: firstEntry?.title ?? pageJson?.title ?? item?.title,
       subtitle: pageItem?.episodeName ?? pageItem?.showName ?? item?.subtitle,
       posterUrl: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl,
