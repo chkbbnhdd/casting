@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, OnDestroy, OnInit, signal } from '@angular/core';
+import { MediaFile } from '../../api/video-v1/model/mediaFile';
 
 declare global {
   interface Window {
@@ -226,6 +227,12 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     return streamUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4';
   }
 
+  private selectPlayableMediaFile(mediaFiles: MediaFile[]): MediaFile | null {
+    return mediaFiles.find((file) => file.format === 'video/hls' && !!file.url)
+      ?? mediaFiles.find((file) => !!file.url)
+      ?? null;
+  }
+
   private async resolvePlaybackFromQueueItem(item: any): Promise<ResolvedPlayback> {
     const rawPath = item?.customData?.path ?? item?.url;
     const accessToken = item?.customData?.accessToken;
@@ -274,12 +281,14 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       throw new Error(`Video request failed with ${videoResponse.status}`);
     }
 
-    const mediaFiles = await videoResponse.json();
-    const primary = Array.isArray(mediaFiles) ? mediaFiles.find((file: any) => typeof file?.url === 'string') : null;
+    const mediaFiles = await videoResponse.json() as MediaFile[];
+    const primary = Array.isArray(mediaFiles) ? this.selectPlayableMediaFile(mediaFiles) : null;
     const streamUrl = primary?.url;
     if (typeof streamUrl !== 'string' || !streamUrl) {
       throw new Error('No playable stream URL found in video response.');
     }
+
+    this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
 
     return {
       streamUrl,
