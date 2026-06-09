@@ -11,6 +11,7 @@ declare global {
 const CAST_RECEIVER_SCRIPT_URL = 'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js';
 const NEXT_UP_PREVIEW_SECONDS = 30;
 const CONTROLS_HIDE_DELAY_MS = 5000;
+const CONFIG_ENDPOINT_URL = 'https://prod95-cdn.dr-massive.com/api/config?device=chromecast&ff=idp%2Cldp%2Crpt&include=classification%2Csubscription%2Csitemap%2Cnavigation%2Cgeneral%2Ci18n%2Cplayback%2Clinear%2CfeatureFlags&lang=da&segments=drtv&sub=Registered';
 const PAGE_ENDPOINT_BASE_URL = 'https://prod95-cdn.dr-massive.com/api/page';
 const VIDEO_ENDPOINT_BASE_URL = 'https://prod95.dr-massive.com/api/account/items';
 
@@ -85,6 +86,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly nextItemTitle = signal<string | null>(null);
   protected readonly nextItemThumbnail = signal<string | null>(null);
   protected readonly showNextUp = signal(false);
+  protected readonly configResponse = signal<unknown | null>(null);
   protected readonly logs = signal<string[]>([]);
 
   private storedQueueItems: any[] = [];
@@ -93,6 +95,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     this.pushLog('Receiver booting');
     try {
+      await this.loadConfigResponse();
       await loadReceiverFramework();
       this.pushLog('CAF framework loaded');
       this.initializeReceiver();
@@ -143,6 +146,29 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     const entry = `[${new Date().toLocaleTimeString()}] ${message}`;
     this.logs.update((current) => [entry, ...current].slice(0, 200));
     console.log(message);
+  }
+
+  private async loadConfigResponse(): Promise<void> {
+    try {
+      this.pushLog('Fetching receiver config');
+      const response = await fetch(CONFIG_ENDPOINT_URL, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Config request failed with ${response.status}`);
+      }
+
+      const configJson = await response.json();
+      this.configResponse.set(configJson);
+      this.pushLog('Receiver config loaded');
+    } catch (error: any) {
+      this.configResponse.set(null);
+      this.pushLog('Receiver config fetch failed: ' + (error?.message ?? String(error)));
+    }
   }
 
   private buildPageUrl(path: string): string {
