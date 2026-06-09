@@ -172,7 +172,6 @@
 
           @if (activeItem(); as nowPlaying) {
             <div class="now-playing">
-              <img [src]="nowPlaying.posterUrl" [alt]="nowPlaying.title" />
               <div>
                 <p>{{ nowPlaying.subtitle }}</p>
                 <h3>{{ nowPlaying.title }}</h3>
@@ -189,9 +188,6 @@
           <div class="queue-list">
             @for (item of queueItems(); track item.id; let index = $index) {
               <div class="queue-item" [class.active]="store.isActive(item.id)">
-                <button type="button" class="queue-thumb" (click)="store.selectItem(item.id)">
-                  <img [src]="item.posterUrl" [alt]="item.title" />
-                </button>
                 <div class="queue-meta">
                   <span class="index">#{{ index + 1 }}</span>
                   <strong>{{ item.title }}</strong>
