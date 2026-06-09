@@ -2,62 +2,70 @@
 <main class="receiver-root">
   <video class="cast-media-element castMediaElement" autoplay playsinline></video>
 
-  <div class="logo">
-    @if (!isPlaying()) {
-      <!-- <img src="/dr_logo.svg" alt="DR logo" /> -->
-      <div class="idle-copy">
-        <p class="idle-message">Du kan nu caste på dit TV</p>
-      </div>
-    }
-  </div>
-
-  @if (!isPlaying()) {
-    <aside class="promo-rail" aria-label="Promoted content">
-      <article class="promo-spot">
-        <img src="/spot%201.png" alt="Promoted content spot 1" />
-      </article>
-      <article class="promo-spot">
-        <img src="/spot%202.png" alt="Promoted content spot 2" />
-      </article>
-    </aside>
-  }
-
-  @if (showProgressBarLogo()) {
-    <div class="custom-controls" aria-hidden="true">
-      <div class="custom-controls-top">
-        <div class="custom-controls-meta">
-          <span class="custom-controls-title">{{ title() }}</span>
-          <span class="custom-controls-subtitle">{{ subtitle() }}</span>
-        </div>
-        <div class="custom-controls-time">
-          <span>{{ formatTime(currentTimeSec()) }}</span>
-          <span class="custom-controls-time-sep">/</span>
-          <span>{{ formatTime(durationSec()) }}</span>
-        </div>
-      </div>
-      <div class="custom-controls-track">
-        <div
-          class="custom-controls-fill"
-          [style.width.%]="durationSec() > 0 ? (currentTimeSec() / durationSec()) * 100 : 0"
-        ></div>
-        <div
-          class="custom-controls-buffered"
-          [style.width.%]="0"
-        ></div>
+  @if (receiverError()) {
+    <div class="receiver-error" role="alert" aria-live="assertive">
+      <div class="receiver-error-inner">
+        <p class="receiver-error-label">Playback error</p>
+        <p class="receiver-error-message">{{ receiverError() }}</p>
       </div>
     </div>
-  }
-
-  <section class="info" aria-live="polite">
-
-    @if (showNextUp() && nextItemTitle() && nextItemThumbnail()) {
-      <aside class="next-up" aria-label="Next in queue">
-        <p class="next-label">Next up</p>
-        <div class="next-item">
-          <img class="next-thumbnail" [src]="nextItemThumbnail()!" [alt]="nextItemTitle()!" />
-          <p class="next-title">{{ nextItemTitle() }}</p>
+  } @else {
+    <div class="logo">
+      @if (!isPlaying()) {
+        <!-- <img src="/dr_logo.svg" alt="DR logo" /> -->
+        <div class="idle-copy">
+          <p class="idle-message">Du kan nu caste på dit TV</p>
         </div>
+      }
+    </div>
+
+    @if (!isPlaying()) {
+      <aside class="promo-rail" aria-label="Promoted content">
+        <article class="promo-spot">
+          <img src="/spot%201.png" alt="Promoted content spot 1" />
+        </article>
+        <article class="promo-spot">
+          <img src="/spot%202.png" alt="Promoted content spot 2" />
+        </article>
       </aside>
     }
-  </section>
+
+    @if (showProgressBarLogo()) {
+      <div class="custom-controls" aria-hidden="true">
+        <div class="custom-controls-top">
+          <div class="custom-controls-meta">
+            <span class="custom-controls-title">{{ title() }}</span>
+            <span class="custom-controls-subtitle">{{ subtitle() }}</span>
+          </div>
+          <div class="custom-controls-time">
+            <span>{{ formatTime(currentTimeSec()) }}</span>
+            <span class="custom-controls-time-sep">/</span>
+            <span>{{ formatTime(durationSec()) }}</span>
+          </div>
+        </div>
+        <div class="custom-controls-track">
+          <div
+            class="custom-controls-fill"
+            [style.width.%]="durationSec() > 0 ? (currentTimeSec() / durationSec()) * 100 : 0"
+          ></div>
+          <div
+            class="custom-controls-buffered"
+            [style.width.%]="0"
+          ></div>
+        </div>
+      </div>
+    }
+
+    <section class="info" aria-live="polite">
+      @if (showNextUp() && nextItemTitle() && nextItemThumbnail()) {
+        <aside class="next-up" aria-label="Next in queue">
+          <p class="next-label">Next up</p>
+          <div class="next-item">
+            <img class="next-thumbnail" [src]="nextItemThumbnail()!" [alt]="nextItemTitle()!" />
+            <p class="next-title">{{ nextItemTitle() }}</p>
+          </div>
+        </aside>
+      }
+    </section>
+  }
 </main>

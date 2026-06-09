@@ -26,6 +26,11 @@ interface ResolvedPlayback {
   posterUrl?: string;
 }
 
+interface QueueItemRuntimeData {
+  path: string | null;
+  accessToken: string | null;
+}
+
 function loadReceiverFramework(): Promise<void> {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return Promise.reject(new Error('Cast receiver framework requires a browser environment.'));
@@ -76,6 +81,7 @@ function loadReceiverFramework(): Promise<void> {
 export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly title = signal('Waiting for content');
   protected readonly subtitle = signal('Idle');
+  protected readonly receiverError = signal<string | null>(null);
   protected readonly uiState = signal<ReceiverUiState>('awaiting-cast');
   protected readonly hasSenderConnected = signal(false);
   protected readonly queueStatus = signal<string>('idle');
@@ -95,13 +101,16 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     this.pushLog('Receiver booting');
+    this.receiverError.set(null);
     try {
       await this.loadConfigResponse();
       await loadReceiverFramework();
       this.pushLog('CAF framework loaded');
       this.initializeReceiver();
     } catch (err: any) {
-      this.pushLog('Receiver initialization failed: ' + (err?.message ?? String(err)));
+      const message = err?.message ?? String(err);
+      this.receiverError.set(message);
+      this.pushLog('Receiver initialization failed: ' + message);
     }
   }
 
@@ -165,6 +174,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
       const configJson = await response.json();
       this.configResponse.set(configJson);
+      this.receiverError.set(null);
       this.pushLog('Receiver config loaded');
     } catch (error: any) {
       this.configResponse.set(null);
@@ -227,15 +237,51 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     return streamUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4';
   }
 
+  private getQueueItemRuntimeData(selectedItem: any, loadRequestData?: any): QueueItemRuntimeData {
+    const queueCustomData = selectedItem?.customData ?? {};
+    const mediaCustomData = loadRequestData?.media?.customData ?? {};
+
+    const rawPath = queueCustomData.path ?? mediaCustomData.path ?? selectedItem?.url ?? null;
+    const accessToken = queueCustomData.accessToken ?? mediaCustomData.accessToken ?? null;
+
+    return {
+      path: typeof rawPath === 'string' ? rawPath : null,
+      accessToken: typeof accessToken === 'string' ? accessToken : null,
+    };
+  }
+
+  private applyResolvedPlaybackToLoadRequest(loadRequestData: any, resolvedPlayback: ResolvedPlayback): void {
+    if (!loadRequestData?.media) {
+      return;
+    }
+
+    loadRequestData.autoplay = true;
+    loadRequestData.media.contentId = resolvedPlayback.streamUrl;
+    loadRequestData.media.contentUrl = resolvedPlayback.streamUrl;
+    loadRequestData.media.contentType = resolvedPlayback.mimeType;
+    loadRequestData.media.streamType = 'BUFFERED';
+
+    const metadata = loadRequestData.media.metadata ?? {};
+    metadata.title = resolvedPlayback.title ?? metadata.title;
+    metadata.subtitle = resolvedPlayback.subtitle ?? metadata.subtitle;
+
+    if (resolvedPlayback.posterUrl) {
+      metadata.images = [{ url: resolvedPlayback.posterUrl }];
+    }
+
+    loadRequestData.media.metadata = metadata;
+  }
+
   private selectPlayableMediaFile(mediaFiles: MediaFile[]): MediaFile | null {
     return mediaFiles.find((file) => file.format === 'video/hls' && !!file.url)
       ?? mediaFiles.find((file) => !!file.url)
       ?? null;
   }
 
-  private async resolvePlaybackFromQueueItem(item: any): Promise<ResolvedPlayback> {
-    const rawPath = item?.customData?.path ?? item?.url;
-    const accessToken = item?.customData?.accessToken;
+  private async resolvePlaybackFromQueueItem(item: any, loadRequestData?: any): Promise<ResolvedPlayback> {
+    const runtimeData = this.getQueueItemRuntimeData(item, loadRequestData);
+    const rawPath = runtimeData.path;
+    const accessToken = runtimeData.accessToken;
     if (typeof rawPath !== 'string' || !rawPath.trim()) {
       throw new Error('Queue item path is missing.');
     }
@@ -243,6 +289,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     const normalizedPath = rawPath.trim().startsWith('/') ? rawPath.trim() : `/${rawPath.trim()}`;
     const pageUrl = this.buildPageUrl(normalizedPath);
     this.pushLog(`Resolving page for path ${normalizedPath}`);
+    this.pushLog(`Page URL: ${pageUrl}`);
 
     const pageResponse = await fetch(pageUrl, {
       method: 'GET',
@@ -250,6 +297,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         Accept: 'application/json',
       },
     });
+
+    this.pushLog(`Page response status: ${pageResponse.status}`);
 
     if (!pageResponse.ok) {
       throw new Error(`Page request failed with ${pageResponse.status}`);
@@ -263,12 +312,15 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       throw new Error('Unable to resolve item id from page response.');
     }
 
+    this.pushLog(`Resolved item id from page response: ${itemId}`);
+
     if (typeof accessToken !== 'string' || !accessToken.trim()) {
       throw new Error('Missing accessToken for protected video endpoint.');
     }
 
     const videoUrl = this.buildVideoUrl(itemId);
     this.pushLog(`Fetching media stream for item ${itemId}`);
+    this.pushLog(`Video URL: ${videoUrl}`);
     const videoResponse = await fetch(videoUrl, {
       method: 'GET',
       headers: {
@@ -276,6 +328,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         Authorization: `Bearer ${accessToken.trim()}`,
       },
     });
+
+    this.pushLog(`Video response status: ${videoResponse.status}`);
 
     if (!videoResponse.ok) {
       throw new Error(`Video request failed with ${videoResponse.status}`);
@@ -357,32 +411,20 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
             const selectedItem = (payload.items || []).find((i: any) => i.id === selectedId) || payload.items?.[0];
             this.storedQueueItems = payload.items || [];
             if (selectedItem) {
-              let resolvedPlayback: ResolvedPlayback | null = null;
-              try {
-                resolvedPlayback = await this.resolvePlaybackFromQueueItem(selectedItem);
-              } catch (resolveError: any) {
-                this.pushLog('Playback resolution failed, falling back to raw queue URL: ' + (resolveError?.message ?? String(resolveError)));
-              }
+              this.receiverError.set(null);
+              const resolvedPlayback = await this.resolvePlaybackFromQueueItem(selectedItem, loadRequestData);
 
               this.storedActiveItemId = selectedItem.id;
-              this.title.set(resolvedPlayback?.title || selectedItem.title || 'Untitled');
-              this.subtitle.set(resolvedPlayback?.subtitle || selectedItem.subtitle || selectedItem.url || '');
+              this.title.set(resolvedPlayback.title || selectedItem.title || 'Untitled');
+              this.subtitle.set(resolvedPlayback.subtitle || selectedItem.subtitle || selectedItem.url || '');
               this.pushLog('Showing queue item: ' + (selectedItem.title || selectedItem.id));
 
-              if (resolvedPlayback?.posterUrl) {
+              if (resolvedPlayback.posterUrl) {
                 selectedItem.posterUrl = resolvedPlayback.posterUrl;
               }
 
-              // Ensure contentUrl is set for the player — sender SDK may not serialize it
-              if (loadRequestData.media) {
-                const playbackUrl = resolvedPlayback?.streamUrl ?? selectedItem.url;
-                if (playbackUrl) {
-                  loadRequestData.media.contentUrl = playbackUrl;
-                  loadRequestData.media.contentId = playbackUrl;
-                  loadRequestData.media.contentType = resolvedPlayback?.mimeType ?? selectedItem.mimeType ?? 'video/mp4';
-                  this.pushLog('Set contentUrl from resolved playback: ' + playbackUrl);
-                }
-              }
+              this.applyResolvedPlaybackToLoadRequest(loadRequestData, resolvedPlayback);
+              this.pushLog('Set contentUrl from resolved playback: ' + resolvedPlayback.streamUrl);
 
               // Find and display next item
               const selectedIndex = (payload.items || []).findIndex((i: any) => i.id === selectedItem.id);
@@ -416,7 +458,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
             this.pushLog('Showing media.metadata title');
           }
         } catch (e: any) {
-          this.pushLog('Error processing LOAD message: ' + (e?.message ?? String(e)));
+          const message = e?.message ?? String(e);
+          this.receiverError.set(message);
+          this.pushLog('Error processing LOAD message: ' + message);
+          throw e;
         }
 
         return loadRequestData;
@@ -429,11 +474,15 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       playerManager.addEventListener(EventType.ERROR, (event: any) => {
         const code = event?.detailedErrorCode ?? event?.errorCode ?? 'unknown';
         const reason = event?.reason ?? '';
+        this.receiverError.set(`Playback error (${code})${reason ? `: ${reason}` : ''}`);
         this.pushLog(`PLAYBACK ERROR: code=${code}${reason ? ' reason=' + reason : ''}`);
       });
       playerManager.addEventListener(EventType.MEDIA_STATUS, (event: any) => {
         const playerState = event?.mediaStatus?.playerState ?? 'unknown';
         this.pushLog('Player state: ' + playerState);
+        if (playerState === 'PLAYING') {
+          this.receiverError.set(null);
+        }
         this.isPlaying.set(playerState === 'PLAYING' || playerState === 'BUFFERING' || playerState === 'LOADING');
         this.updateUiState();
         if (playerState === 'PAUSED') {
@@ -485,18 +534,18 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    let resolvedPlayback: ResolvedPlayback | null = null;
-    try {
-      resolvedPlayback = await this.resolvePlaybackFromQueueItem(nextItem);
-    } catch (resolveError: any) {
-      this.pushLog('Auto-advance playback resolution failed, using raw queue URL: ' + (resolveError?.message ?? String(resolveError)));
-    }
+    const resolvedPlayback = await this.resolvePlaybackFromQueueItem(nextItem);
+    this.receiverError.set(null);
 
     this.storedActiveItemId = nextItem.id;
-    this.title.set(resolvedPlayback?.title || nextItem.title || 'Untitled');
-    this.subtitle.set(resolvedPlayback?.subtitle || nextItem.subtitle || nextItem.url || '');
+    this.title.set(resolvedPlayback.title || nextItem.title || 'Untitled');
+    this.subtitle.set(resolvedPlayback.subtitle || nextItem.subtitle || nextItem.url || '');
     this.queueStatus.set('playing');
     this.showNextUp.set(false);
+
+    if (resolvedPlayback.posterUrl) {
+      nextItem.posterUrl = resolvedPlayback.posterUrl;
+    }
 
     const nextNextItem = currentIndex + 2 < items.length ? items[currentIndex + 2] : null;
     this.nextItemTitle.set(nextNextItem?.title ?? null);
@@ -505,17 +554,13 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     try {
       const loadReq = new window.cast.framework.messages.LoadRequestData();
       loadReq.media = new window.cast.framework.messages.MediaInformation();
-      const playbackUrl = resolvedPlayback?.streamUrl ?? nextItem.url;
-      loadReq.media.contentId = playbackUrl;
-      loadReq.media.contentUrl = playbackUrl;
-      loadReq.media.contentType = resolvedPlayback?.mimeType ?? nextItem.mimeType ?? 'video/mp4';
-      const isHls = (nextItem.mimeType || '').includes('mpegURL') || (nextItem.mimeType || '').includes('mpegurl');
-      loadReq.media.streamType = isHls ? 'BUFFERED' : 'BUFFERED';
-      loadReq.autoplay = true;
+      this.applyResolvedPlaybackToLoadRequest(loadReq, resolvedPlayback);
       playerManager.load(loadReq);
       this.pushLog('Auto-advancing to: ' + (nextItem.title || nextItem.id));
     } catch (e: any) {
-      this.pushLog('Error auto-advancing queue: ' + (e?.message ?? String(e)));
+      const message = e?.message ?? String(e);
+      this.receiverError.set(message);
+      this.pushLog('Error auto-advancing queue: ' + message);
     }
   }
 }
