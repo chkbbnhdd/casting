@@ -110,6 +110,19 @@
   word-break: break-word;
 }
 
+.receiver-version {
+  position: fixed;
+  left: 2rem;
+  bottom: 0.85rem;
+  z-index: 120;
+  margin: 0;
+  padding: 0.2rem 0.55rem;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 20px;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
 .custom-controls {
   position: fixed;
   bottom: 0;
@@ -234,7 +247,7 @@
 
 .idle-message {
   margin: 0;
-  font-size: 80px;
+  font-size: 70px;
   line-height: 1.05;
   font-weight: 700;
   text-align: left;

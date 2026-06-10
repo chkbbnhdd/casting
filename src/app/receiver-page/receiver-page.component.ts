@@ -101,6 +101,7 @@ function loadReceiverFramework(): Promise<void> {
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class ReceiverPageComponent implements OnInit, OnDestroy {
+  protected readonly appVersion = signal('0.0.1');
   protected readonly showDebugOverlay = SHOW_DEBUG_OVERLAY;
   protected readonly title = signal('Waiting for content');
   protected readonly subtitle = signal('Idle');
