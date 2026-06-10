@@ -48,8 +48,8 @@ export class HybridCastTransport implements CastTransport {
     await this.activeTransport.play?.(item, state);
   }
 
-  async toggleSubtitles(): Promise<boolean> {
-    return await this.activeTransport.toggleSubtitles?.() ?? false;
+  async toggleSubtitles(state: CastQueueState): Promise<boolean> {
+    return await this.activeTransport.toggleSubtitles?.(state) ?? false;
   }
 
   async pause(state: CastQueueState): Promise<void> {

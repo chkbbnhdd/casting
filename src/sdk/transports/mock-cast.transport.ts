@@ -22,7 +22,7 @@ export class MockCastTransport implements CastTransport {
     this.lastQueue.activeItemId = item.id;
   }
 
-  async toggleSubtitles(): Promise<boolean> {
+  async toggleSubtitles(_state: CastQueueState): Promise<boolean> {
     this.subtitlesEnabled = !this.subtitlesEnabled;
     return this.subtitlesEnabled;
   }

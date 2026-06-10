@@ -34,6 +34,7 @@ interface ResolvedPlayback {
 interface QueueItemRuntimeData {
   path: string | null;
   accessToken: string | null;
+  preferredAccessService: string | null;
 }
 
 interface QueueItemPreview {
@@ -331,10 +332,12 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     const rawPath = queueCustomData.path ?? mediaCustomData.path ?? selectedItem?.url ?? null;
     const accessToken = queueCustomData.accessToken ?? mediaCustomData.accessToken ?? null;
+    const preferredAccessService = queueCustomData.preferredAccessService ?? mediaCustomData.preferredAccessService ?? null;
 
     return {
       path: typeof rawPath === 'string' ? rawPath : null,
       accessToken: typeof accessToken === 'string' ? accessToken : null,
+      preferredAccessService: typeof preferredAccessService === 'string' ? preferredAccessService : null,
     };
   }
 
@@ -374,10 +377,17 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  private selectPlayableMediaFile(mediaFiles: MediaFile[]): MediaFile | null {
+  private selectPlayableMediaFile(mediaFiles: MediaFile[], preferredAccessService: string | null = null): MediaFile | null {
     const hlsFiles = mediaFiles.filter((file) => file.format === 'video/hls' && !!file.url);
     const anyFiles = mediaFiles.filter((file) => !!file.url);
     const candidates = hlsFiles.length > 0 ? hlsFiles : anyFiles;
+
+    if (preferredAccessService) {
+      const preferredMatch = candidates.find((file) => file.accessService === preferredAccessService);
+      if (preferredMatch) {
+        return preferredMatch;
+      }
+    }
 
     return candidates.find((file) => file.accessService === 'StandardVideo')
       ?? candidates.find((file) => file.accessService !== 'SpokenSubtitles')
@@ -449,6 +459,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     const runtimeData = this.getQueueItemRuntimeData(item, loadRequestData);
     const rawPath = runtimeData.path;
     const accessToken = runtimeData.accessToken;
+    const preferredAccessService = runtimeData.preferredAccessService;
     if (typeof rawPath !== 'string' || !rawPath.trim()) {
       throw new Error('Queue item path is missing.');
     }
@@ -519,7 +530,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     const mediaFiles = await videoResponse.json() as MediaFile[];
-    const primary = Array.isArray(mediaFiles) ? this.selectPlayableMediaFile(mediaFiles) : null;
+    const primary = Array.isArray(mediaFiles) ? this.selectPlayableMediaFile(mediaFiles, preferredAccessService) : null;
     const streamUrl = primary?.url;
     if (typeof streamUrl !== 'string' || !streamUrl) {
       throw new Error('No playable stream URL found in video response.');

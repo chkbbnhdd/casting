@@ -121,5 +121,7 @@
     </section>
   }
 
-  <p class="receiver-version" aria-label="App version">v. {{ appVersion() }}</p>
+  @if (!isPlaying()) {
+    <p class="receiver-version" aria-label="App version">v. {{ appVersion() }}</p>
+  }
 </main>

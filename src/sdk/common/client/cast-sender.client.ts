@@ -308,7 +308,7 @@ export class CastSenderClient {
 
   async toggleSubtitles(): Promise<void> {
     try {
-      const subtitlesEnabled = await this.transport.toggleSubtitles?.();
+      const subtitlesEnabled = await this.transport.toggleSubtitles?.(this.state.queue);
       this.emit({
         ...this.state,
         subtitlesEnabled: subtitlesEnabled ?? this.state.subtitlesEnabled,
