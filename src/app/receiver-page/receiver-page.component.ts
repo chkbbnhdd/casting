@@ -510,23 +510,14 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     selectedFile: MediaFile,
     preferredAccessService: string | null,
   ): Array<Subtitles> | null | undefined {
+    void mediaFiles;
+    void preferredAccessService;
+
     if (Array.isArray(selectedFile.subtitles) && selectedFile.subtitles.length > 0) {
       return selectedFile.subtitles;
     }
 
-    const spokenCandidate = mediaFiles.find(
-      (file) => this.isSpokenAccessService(file.accessService) && Array.isArray(file.subtitles) && file.subtitles.length > 0,
-    );
-    if (spokenCandidate) {
-      return spokenCandidate.subtitles;
-    }
-
-    if (preferredAccessService && this.isStandardAccessService(preferredAccessService)) {
-      return null;
-    }
-
-    const fallbackCandidate = mediaFiles.find((file) => Array.isArray(file.subtitles) && file.subtitles.length > 0);
-    return fallbackCandidate?.subtitles;
+    return null;
   }
 
   private normalizeSubtitleMimeType(format: string | null | undefined): string {
@@ -672,8 +663,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
     const subtitlesEnabled = this.isSpokenAccessService(preferredAccessService);
-    const subtitleSource = this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService);
-    const textTracks = this.buildTextTracks(subtitleSource);
+    const subtitleSource = subtitlesEnabled
+      ? this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService)
+      : null;
+    const textTracks = subtitlesEnabled ? this.buildTextTracks(subtitleSource) : [];
 
     this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
     this.pushLog(
