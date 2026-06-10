@@ -16,6 +16,23 @@ type GoogleCastMediaNamespace = {
 
 type GoogleCastSession = {
   loadMedia?: (request: unknown) => Promise<void> | void;
+  getMediaSession?: () => GoogleCastMediaSession | null;
+};
+
+type GoogleCastEditTracksInfoRequest = {
+  activeTrackIds?: number[] | null;
+};
+
+type GoogleCastMediaSession = {
+  activeTrackIds?: number[] | null;
+  media?: {
+    tracks?: Array<{ trackId?: number; type?: string }> | null;
+  } | null;
+  editTracksInfo?: (
+    request: GoogleCastEditTracksInfoRequest,
+    successCallback: () => void,
+    errorCallback: (error: unknown) => void
+  ) => void;
 };
 
 type GoogleCastRemotePlayer = object;
@@ -191,6 +208,12 @@ function createLoadRequest(item: CastMediaItem, state: CastQueueState, chromeCas
   return request;
 }
 
+function getCurrentMediaSession(chromeCastWindow: ChromeCastWindow): GoogleCastMediaSession | null {
+  const castContext = getCastContext(chromeCastWindow);
+  const session = castContext?.getCurrentSession() ?? null;
+  return session?.getMediaSession?.() ?? null;
+}
+
 export class GoogleCastTransport implements CastTransport {
   readonly name = 'Google Cast SDK';
   readonly isSupported = true;
@@ -313,6 +336,41 @@ export class GoogleCastTransport implements CastTransport {
       console.warn('[GoogleCastTransport] pause — cast.framework.RemotePlayer not available');
     }
     this.lastQueue = cloneQueueState(state);
+  }
+
+  async toggleSubtitles(): Promise<boolean> {
+    const chromeCastWindow = getChromeCastWindow();
+    if (!chromeCastWindow) {
+      throw new Error('Google Cast sender SDK requires a browser window.');
+    }
+
+    const mediaSession = getCurrentMediaSession(chromeCastWindow);
+    if (!mediaSession?.editTracksInfo) {
+      throw new Error('No active Cast media session is available for subtitle toggling.');
+    }
+
+    const textTrackIds = (mediaSession.media?.tracks ?? [])
+      .filter((track): track is { trackId: number; type?: string } => typeof track?.trackId === 'number')
+      .filter((track) => track.type === 'TEXT')
+      .map((track) => track.trackId);
+
+    if (textTrackIds.length === 0) {
+      throw new Error('No subtitle tracks are available on the active media item.');
+    }
+
+    const currentlyActiveIds = (mediaSession.activeTrackIds ?? []).filter((trackId): trackId is number => typeof trackId === 'number');
+    const hasActiveSubtitle = currentlyActiveIds.some((trackId) => textTrackIds.includes(trackId));
+    const nextActiveTrackIds = hasActiveSubtitle ? [] : [textTrackIds[0]];
+
+    await new Promise<void>((resolve, reject) => {
+      mediaSession.editTracksInfo?.(
+        { activeTrackIds: nextActiveTrackIds },
+        () => resolve(),
+        (error) => reject(error)
+      );
+    });
+
+    return nextActiveTrackIds.length > 0;
   }
 
   async stop(state: CastQueueState): Promise<void> {

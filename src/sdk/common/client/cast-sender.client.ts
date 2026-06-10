@@ -59,6 +59,7 @@ export class CastSenderClient {
         ? `Ready to connect with ${transport.name}`
         : 'No cast transport is available in this environment.',
       lastError: null,
+      subtitlesEnabled: null,
       uiOverrides: mergeUiOverrides(defaultCastUiOverrides, uiOverrides),
     };
 
@@ -300,6 +301,25 @@ export class CastSenderClient {
       this.emit({
         ...this.state,
         statusMessage: 'Could not pause playback.',
+        lastError: message,
+      });
+    }
+  }
+
+  async toggleSubtitles(): Promise<void> {
+    try {
+      const subtitlesEnabled = await this.transport.toggleSubtitles?.();
+      this.emit({
+        ...this.state,
+        subtitlesEnabled: subtitlesEnabled ?? this.state.subtitlesEnabled,
+        statusMessage: subtitlesEnabled === true ? 'Subtitles turned on.' : subtitlesEnabled === false ? 'Subtitles turned off.' : 'Subtitle track toggled.',
+        lastError: null,
+      });
+    } catch (error) {
+      const message = formatCastError(error);
+      this.emit({
+        ...this.state,
+        statusMessage: 'Could not toggle subtitles.',
         lastError: message,
       });
     }

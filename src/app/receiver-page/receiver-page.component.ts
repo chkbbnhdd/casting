@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, OnDestroy, OnInit, signal } from '@angular/core';
 import { MediaFile } from '../../api/video-v1/model/mediaFile';
+import { Subtitles } from '../../api/video-v1/model/subtitles';
 
 declare global {
   interface Window {
@@ -27,6 +28,7 @@ interface ResolvedPlayback {
   title?: string;
   subtitle?: string;
   posterUrl?: string;
+  textTracks?: any[];
 }
 
 interface QueueItemRuntimeData {
@@ -137,6 +139,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   private storedActiveItemId: string | null = null;
   private lastDebugOverlayEventAt = 0;
   private lastDebugOverlayEvent: string | null = null;
+  private pendingSubtitleTrackIds: number[] = [];
 
   async ngOnInit(): Promise<void> {
     this.pushLog('Receiver booting');
@@ -359,12 +362,87 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     loadRequestData.media.metadata = metadata;
+
+    if (resolvedPlayback.textTracks?.length) {
+      loadRequestData.media.tracks = resolvedPlayback.textTracks;
+      this.pendingSubtitleTrackIds = resolvedPlayback.textTracks
+        .map((track) => track?.trackId)
+        .filter((trackId): trackId is number => typeof trackId === 'number');
+    } else {
+      loadRequestData.media.tracks = undefined;
+      this.pendingSubtitleTrackIds = [];
+    }
   }
 
   private selectPlayableMediaFile(mediaFiles: MediaFile[]): MediaFile | null {
-    return mediaFiles.find((file) => file.format === 'video/hls' && !!file.url)
-      ?? mediaFiles.find((file) => !!file.url)
+    const hlsFiles = mediaFiles.filter((file) => file.format === 'video/hls' && !!file.url);
+    const anyFiles = mediaFiles.filter((file) => !!file.url);
+    const candidates = hlsFiles.length > 0 ? hlsFiles : anyFiles;
+
+    return candidates.find((file) => file.accessService === 'StandardVideo')
+      ?? candidates.find((file) => file.accessService !== 'SpokenSubtitles')
+      ?? candidates[0]
       ?? null;
+  }
+
+  private normalizeSubtitleMimeType(format: string | null | undefined): string {
+    if (typeof format !== 'string' || !format.trim()) {
+      return 'text/vtt';
+    }
+
+    return format.split(';')[0]?.trim() || 'text/vtt';
+  }
+
+  private normalizeSubtitleLanguage(language: string | null | undefined): string {
+    if (typeof language !== 'string' || !language.trim()) {
+      return 'da';
+    }
+
+    const normalized = language.trim();
+    if (/^[a-z]{2,3}(-[A-Za-z0-9]+)*$/i.test(normalized)) {
+      return normalized.toLowerCase();
+    }
+
+    if (/combined|hearing|caption/i.test(normalized)) {
+      return 'da';
+    }
+
+    return 'und';
+  }
+
+  private mapSubtitleSubtype(language: string | null | undefined): string {
+    return /combined|hearing|caption/i.test(language ?? '') ? 'CAPTIONS' : 'SUBTITLES';
+  }
+
+  private buildTextTracks(subtitles: Array<Subtitles> | null | undefined): any[] {
+    if (!Array.isArray(subtitles) || subtitles.length === 0) {
+      return [];
+    }
+
+    const messages = window.cast?.framework?.messages;
+    const TrackCtor = messages?.Track;
+    const TrackType = messages?.TrackType;
+
+    return subtitles
+      .filter((subtitle) => typeof subtitle?.link === 'string' && !!subtitle.link)
+      .map((subtitle, index) => {
+        const track = typeof TrackCtor === 'function'
+          ? new TrackCtor(index + 1, TrackType?.TEXT ?? 'TEXT')
+          : {
+              trackId: index + 1,
+              type: TrackType?.TEXT ?? 'TEXT',
+            };
+
+        track.trackId = track.trackId ?? index + 1;
+        track.trackContentId = subtitle.link;
+        track.trackContentType = this.normalizeSubtitleMimeType(subtitle.format);
+        track.language = this.normalizeSubtitleLanguage(subtitle.language);
+        track.name = subtitle.language || `Subtitle ${index + 1}`;
+        track.subtype = this.mapSubtitleSubtype(subtitle.language);
+        track.isInband = false;
+
+        return track;
+      });
   }
 
   private async resolvePlaybackFromQueueItem(item: any, loadRequestData?: any): Promise<ResolvedPlayback> {
@@ -459,6 +537,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       title: firstEntry?.title ?? pageJson?.title ?? item?.title,
       subtitle: pageItem?.episodeName ?? pageItem?.showName ?? item?.subtitle,
       posterUrl: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl,
+      textTracks: this.buildTextTracks(primary?.subtitles),
     };
   }
 
@@ -686,6 +765,28 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         this.currentTimeSec.set(current ?? 0);
         this.durationSec.set(duration ?? 0);
         this.updateNextUpVisibility(current ?? 0, duration ?? 0);
+      });
+      playerManager.addEventListener(EventType.PLAYER_LOAD_COMPLETE, () => {
+        if (this.pendingSubtitleTrackIds.length === 0) {
+          return;
+        }
+
+        try {
+          const textTracksManager = playerManager.getTextTracksManager?.();
+          if (!textTracksManager) {
+            return;
+          }
+
+          const activeIds = textTracksManager.getActiveIds?.() ?? [];
+          if (activeIds.length > 0) {
+            return;
+          }
+
+          textTracksManager.setActiveByIds?.([this.pendingSubtitleTrackIds[0]]);
+          this.recordReceiverEvent('Subtitle track activated', String(this.pendingSubtitleTrackIds[0]));
+        } catch (error: any) {
+          this.pushLog('Failed to activate subtitle track: ' + (error?.message ?? String(error)));
+        }
       });
 
       context.start();

@@ -78,6 +78,10 @@ export class CastDemoStore {
     await this.client.pause();
   }
 
+  async toggleSubtitles(): Promise<void> {
+    await this.client.toggleSubtitles();
+  }
+
   async stop(): Promise<void> {
     await this.client.stop();
   }
