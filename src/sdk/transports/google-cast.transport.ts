@@ -7,6 +7,7 @@ type GoogleCastMediaNamespace = {
   GenericMediaMetadata: new () => { title?: string; subtitle?: string; images?: unknown[] };
   Image: new (url: string) => unknown;
   LoadRequest: new (mediaInfo: unknown) => { autoplay?: boolean; customData?: Record<string, unknown> };
+  EditTracksInfoRequest?: new (activeTrackIds: number[]) => { activeTrackIds?: number[] };
   StreamType?: {
     BUFFERED?: unknown;
     OTHER?: unknown;
@@ -20,6 +21,8 @@ type GoogleCastSession = {
 };
 
 type GoogleCastMediaSession = {
+  activeTrackIds?: number[] | null;
+  editTracksInfo?: (request: unknown, successCallback?: () => void, errorCallback?: (error: unknown) => void) => Promise<void> | void;
   media?: {
     tracks?: Array<{ trackId?: number; type?: string }> | null;
   } | null;
@@ -320,6 +323,91 @@ export class GoogleCastTransport implements CastTransport {
       console.warn('[GoogleCastTransport] pause — cast.framework.RemotePlayer not available');
     }
     this.lastQueue = cloneQueueState(state);
+  }
+
+  async toggleSubtitles(state: CastQueueState): Promise<boolean> {
+    const chromeCastWindow = getChromeCastWindow();
+    if (!chromeCastWindow) {
+      throw new Error('Google Cast sender SDK requires a browser window.');
+    }
+
+    await loadScriptOnce(this.scriptUrl);
+    const isInitialized = await initializeGoogleCastLauncher();
+    if (!isInitialized) {
+      throw new Error('Google Cast framework did not initialize.');
+    }
+
+    const castContext = getCastContext(chromeCastWindow);
+    const session = castContext?.getCurrentSession() ?? null;
+    if (!session) {
+      throw new Error('Connect to a Cast receiver before toggling subtitles.');
+    }
+
+    const itemToLoad = state.items.find((item) => item.id === state.activeItemId) ?? state.items[0] ?? null;
+    if (!itemToLoad) {
+      throw new Error('No active queue item is available for subtitle toggling.');
+    }
+
+    const mediaSession = session.getMediaSession?.() ?? null;
+
+    const textTracks = (mediaSession?.media?.tracks ?? []).filter((track) => {
+      const type = String(track?.type ?? '').toUpperCase();
+      return type === 'TEXT';
+    });
+
+    const textTrackIds = textTracks
+      .map((track) => track.trackId)
+      .filter((trackId): trackId is number => typeof trackId === 'number');
+    const currentActiveIds = mediaSession?.activeTrackIds ?? [];
+    const hasActiveTextTrack = currentActiveIds.some((trackId) => textTrackIds.includes(trackId));
+
+    if (!mediaSession?.editTracksInfo || textTrackIds.length === 0) {
+      throw new Error('No editable subtitle tracks are available for this stream.');
+    }
+
+    const shouldEnableViaTracks = !hasActiveTextTrack;
+    const nextActiveIds = shouldEnableViaTracks ? [textTrackIds[0]] : [];
+
+    const mediaNamespace = chromeCastWindow.chrome?.cast?.media;
+    const request = typeof mediaNamespace?.EditTracksInfoRequest === 'function'
+      ? new mediaNamespace.EditTracksInfoRequest(nextActiveIds)
+      : { activeTrackIds: nextActiveIds };
+
+    await new Promise<void>((resolve, reject) => {
+      try {
+        const maybePromise = mediaSession.editTracksInfo?.(
+          request,
+          () => resolve(),
+          (error: unknown) => reject(error instanceof Error ? error : new Error(String(error)))
+        );
+
+        if (maybePromise && typeof (maybePromise as Promise<void>).then === 'function') {
+          (maybePromise as Promise<void>).then(resolve).catch(reject);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    const nextState: CastQueueState = {
+      ...cloneQueueState(state),
+      items: state.items.map((item) => {
+        if (item.id !== itemToLoad.id) {
+          return item;
+        }
+
+        return {
+          ...item,
+          customData: {
+            ...(item.customData ?? {}),
+            preferredAccessService: shouldEnableViaTracks ? 'SpokenSubtitles' : 'StandardVideo',
+          },
+        };
+      }),
+    };
+
+    this.lastQueue = cloneQueueState(nextState);
+    return shouldEnableViaTracks;
   }
 
   async stop(state: CastQueueState): Promise<void> {

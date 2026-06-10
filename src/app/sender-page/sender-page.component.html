@@ -137,6 +137,15 @@
 
           <div>
             <button type="button" class="secondary" (click)="store.playSelected()">Play selected</button>
+            <button
+              type="button"
+              [class.primary]="state().subtitlesEnabled === true"
+              [class.ghost]="state().subtitlesEnabled !== true"
+              (click)="store.toggleSubtitles()"
+              [attr.aria-pressed]="state().subtitlesEnabled === true"
+            >
+              Subtitles: {{ state().subtitlesEnabled === true ? 'On' : state().subtitlesEnabled === false ? 'Off' : 'Unknown' }}
+            </button>
             <button type="button" class="ghost" (click)="store.pause()">Pause</button>
             <button type="button" class="ghost" (click)="store.stop()">Stop</button>
           </div>
