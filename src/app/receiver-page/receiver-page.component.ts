@@ -29,6 +29,7 @@ interface ResolvedPlayback {
   subtitle?: string;
   posterUrl?: string;
   accessService?: string | null;
+  subtitlesEnabled?: boolean;
   textTracks?: any[];
 }
 
@@ -198,6 +199,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   private lastDebugOverlayEventAt = 0;
   private lastDebugOverlayEvent: string | null = null;
   private pendingSubtitleTrackIds: number[] = [];
+  private pendingSubtitlesEnabled = false;
 
   async ngOnInit(): Promise<void> {
     this.pushLog('Receiver booting');
@@ -423,15 +425,22 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     loadRequestData.media.metadata = metadata;
 
-    if (resolvedPlayback.textTracks?.length) {
-      loadRequestData.media.tracks = resolvedPlayback.textTracks;
-      this.pendingSubtitleTrackIds = resolvedPlayback.textTracks
+    const textTracks = resolvedPlayback.textTracks ?? [];
+    const subtitlesEnabled = resolvedPlayback.subtitlesEnabled === true;
+
+    if (textTracks.length) {
+      loadRequestData.media.tracks = textTracks;
+      this.pendingSubtitleTrackIds = textTracks
         .map((track) => track?.trackId)
         .filter((trackId): trackId is number => typeof trackId === 'number');
-      loadRequestData.activeTrackIds = this.pendingSubtitleTrackIds.length > 0 ? [this.pendingSubtitleTrackIds[0]] : [];
+      this.pendingSubtitlesEnabled = subtitlesEnabled;
+      loadRequestData.activeTrackIds = subtitlesEnabled && this.pendingSubtitleTrackIds.length > 0
+        ? [this.pendingSubtitleTrackIds[0]]
+        : [];
     } else {
       loadRequestData.media.tracks = [];
       this.pendingSubtitleTrackIds = [];
+      this.pendingSubtitlesEnabled = false;
       loadRequestData.activeTrackIds = [];
     }
   }
@@ -662,15 +671,13 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
-    const enableSubtitlesForPlayback = this.isSpokenAccessService(selectedAccessService);
-    const subtitleSource = enableSubtitlesForPlayback
-      ? this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService)
-      : null;
-    const textTracks = enableSubtitlesForPlayback ? this.buildTextTracks(subtitleSource) : [];
+    const subtitlesEnabled = this.isSpokenAccessService(preferredAccessService);
+    const subtitleSource = this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService);
+    const textTracks = this.buildTextTracks(subtitleSource);
 
     this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
     this.pushLog(
-      `Selected accessService=${selectedAccessService ?? 'unknown'} preferred=${preferredAccessService ?? 'none'} subtitles=${enableSubtitlesForPlayback ? 'on' : 'off'}`
+      `Selected accessService=${selectedAccessService ?? 'unknown'} preferred=${preferredAccessService ?? 'none'} subtitles=${subtitlesEnabled ? 'on' : 'off'} tracks=${textTracks.length}`
     );
     if (preferredAccessService && !this.accessServiceMatches(selectedAccessService, preferredAccessService)) {
       this.pushLog(`Preferred accessService ${preferredAccessService} not found for item ${itemId}; fell back to ${selectedAccessService ?? 'unknown'}`);
@@ -687,6 +694,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       subtitle: pageItem?.episodeName ?? pageItem?.showName ?? item?.subtitle,
       posterUrl: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl,
       accessService: selectedAccessService,
+      subtitlesEnabled,
       textTracks,
     };
   }
@@ -925,6 +933,12 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
           if (this.pendingSubtitleTrackIds.length === 0) {
             textTracksManager.setActiveByIds?.([]);
+            return;
+          }
+
+          if (!this.pendingSubtitlesEnabled) {
+            textTracksManager.setActiveByIds?.([]);
+            this.recordReceiverEvent('Subtitle tracks available but disabled');
             return;
           }
 
