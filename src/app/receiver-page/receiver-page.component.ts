@@ -437,16 +437,21 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   }
 
   private selectPlayableMediaFile(mediaFiles: MediaFile[], preferredAccessService: string | null = null): MediaFile | null {
-    const hlsFiles = mediaFiles.filter((file) => file.format === 'video/hls' && !!file.url);
-    const anyFiles = mediaFiles.filter((file) => !!file.url);
-    const candidates = hlsFiles.length > 0 ? hlsFiles : anyFiles;
+    const playableFiles = mediaFiles.filter((file) => !!file.url);
+
+    if (playableFiles.length === 0) {
+      return null;
+    }
 
     if (preferredAccessService) {
-      const preferredMatch = candidates.find((file) => this.accessServiceMatches(file.accessService, preferredAccessService));
-      if (preferredMatch) {
-        return preferredMatch;
+      const preferredCandidates = playableFiles.filter((file) => this.accessServiceMatches(file.accessService, preferredAccessService));
+      if (preferredCandidates.length > 0) {
+        return preferredCandidates.find((file) => file.format === 'video/hls') ?? preferredCandidates[0] ?? null;
       }
     }
+
+    const hlsFiles = playableFiles.filter((file) => file.format === 'video/hls');
+    const candidates = hlsFiles.length > 0 ? hlsFiles : playableFiles;
 
     return candidates.find((file) => this.isStandardAccessService(file.accessService))
       ?? candidates.find((file) => !this.isSpokenAccessService(file.accessService))
@@ -459,17 +464,17 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       return '';
     }
 
-    return accessService.trim().toLowerCase();
+    return accessService.trim().toLowerCase().replace(/[^a-z]/g, '');
   }
 
   private isSpokenAccessService(accessService: string | null | undefined): boolean {
     const normalized = this.normalizeAccessServiceName(accessService);
-    return normalized === 'spokensubtitles';
+    return normalized.includes('spoken') && normalized.includes('subtitle');
   }
 
   private isStandardAccessService(accessService: string | null | undefined): boolean {
     const normalized = this.normalizeAccessServiceName(accessService);
-    return normalized === 'standardvideo';
+    return normalized.includes('standard') && normalized.includes('video');
   }
 
   private accessServiceMatches(actual: string | null | undefined, preferred: string | null | undefined): boolean {
@@ -480,7 +485,39 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       return false;
     }
 
+    if (this.isSpokenAccessService(normalizedPreferred)) {
+      return this.isSpokenAccessService(normalizedActual);
+    }
+
+    if (this.isStandardAccessService(normalizedPreferred)) {
+      return this.isStandardAccessService(normalizedActual);
+    }
+
     return normalizedActual === normalizedPreferred;
+  }
+
+  private resolveSubtitleTrackSource(
+    mediaFiles: MediaFile[],
+    selectedFile: MediaFile,
+    preferredAccessService: string | null,
+  ): Array<Subtitles> | null | undefined {
+    if (Array.isArray(selectedFile.subtitles) && selectedFile.subtitles.length > 0) {
+      return selectedFile.subtitles;
+    }
+
+    const spokenCandidate = mediaFiles.find(
+      (file) => this.isSpokenAccessService(file.accessService) && Array.isArray(file.subtitles) && file.subtitles.length > 0,
+    );
+    if (spokenCandidate) {
+      return spokenCandidate.subtitles;
+    }
+
+    if (preferredAccessService && this.isStandardAccessService(preferredAccessService)) {
+      return null;
+    }
+
+    const fallbackCandidate = mediaFiles.find((file) => Array.isArray(file.subtitles) && file.subtitles.length > 0);
+    return fallbackCandidate?.subtitles;
   }
 
   private normalizeSubtitleMimeType(format: string | null | undefined): string {
@@ -626,7 +663,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
     const enableSubtitlesForPlayback = this.isSpokenAccessService(selectedAccessService);
-    const textTracks = enableSubtitlesForPlayback ? this.buildTextTracks(primary?.subtitles) : [];
+    const subtitleSource = enableSubtitlesForPlayback
+      ? this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService)
+      : null;
+    const textTracks = enableSubtitlesForPlayback ? this.buildTextTracks(subtitleSource) : [];
 
     this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
     this.pushLog(
