@@ -28,6 +28,7 @@ interface ResolvedPlayback {
   title?: string;
   subtitle?: string;
   posterUrl?: string;
+  accessService?: string | null;
   textTracks?: any[];
 }
 
@@ -66,23 +67,68 @@ function loadReceiverFramework(): Promise<void> {
   }
 
   return new Promise<void>((resolve, reject) => {
+    let settled = false;
     const previousCallback = window.__onGCastApiAvailable;
+    const completeResolve = (): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeoutId);
+      window.__onGCastApiAvailable = previousCallback;
+      resolve();
+    };
+
+    const completeReject = (error: Error): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeoutId);
+      window.__onGCastApiAvailable = previousCallback;
+      reject(error);
+    };
+
+    const isFrameworkReady = (): boolean => Boolean(window.cast?.framework?.CastReceiverContext);
+
     window.__onGCastApiAvailable = (isAvailable: boolean) => {
       previousCallback?.(isAvailable);
-      if (isAvailable && window.cast?.framework?.CastReceiverContext) {
-        resolve();
+      if (isAvailable && isFrameworkReady()) {
+        completeResolve();
       } else if (!isAvailable) {
-        reject(new Error('Cast receiver framework is unavailable.'));
+        completeReject(new Error('Cast receiver framework is unavailable.'));
       }
     };
 
+    const timeoutId = setTimeout(() => {
+      if (isFrameworkReady()) {
+        completeResolve();
+        return;
+      }
+
+      completeReject(new Error('Timed out while waiting for Cast receiver framework to initialize.'));
+    }, 8000);
+
     const existing = document.querySelector<HTMLScriptElement>('script[src*="cast_receiver_framework.js"]');
     if (existing) {
-      if (window.cast?.framework?.CastReceiverContext) {
-        resolve();
+      if (isFrameworkReady()) {
+        completeResolve();
+        return;
       }
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('Failed to load Cast receiver framework')), { once: true });
+
+      existing.addEventListener(
+        'load',
+        () => {
+          if (isFrameworkReady()) {
+            completeResolve();
+            return;
+          }
+
+          completeReject(new Error('Cast receiver framework script loaded but CAF is unavailable.'));
+        },
+        { once: true }
+      );
+      existing.addEventListener('error', () => completeReject(new Error('Failed to load Cast receiver framework')), { once: true });
       return;
     }
 
@@ -90,8 +136,19 @@ function loadReceiverFramework(): Promise<void> {
     script.async = true;
     script.defer = true;
     script.src = CAST_RECEIVER_SCRIPT_URL;
-    script.addEventListener('load', () => resolve(), { once: true });
-    script.addEventListener('error', () => reject(new Error('Failed to load Cast receiver framework')), { once: true });
+    script.addEventListener(
+      'load',
+      () => {
+        if (isFrameworkReady()) {
+          completeResolve();
+          return;
+        }
+
+        completeReject(new Error('Cast receiver framework script loaded but CAF is unavailable.'));
+      },
+      { once: true }
+    );
+    script.addEventListener('error', () => completeReject(new Error('Failed to load Cast receiver framework')), { once: true });
     document.head.appendChild(script);
   });
 }
@@ -371,9 +428,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       this.pendingSubtitleTrackIds = resolvedPlayback.textTracks
         .map((track) => track?.trackId)
         .filter((trackId): trackId is number => typeof trackId === 'number');
+      loadRequestData.activeTrackIds = this.pendingSubtitleTrackIds.length > 0 ? [this.pendingSubtitleTrackIds[0]] : [];
     } else {
-      loadRequestData.media.tracks = undefined;
+      loadRequestData.media.tracks = [];
       this.pendingSubtitleTrackIds = [];
+      loadRequestData.activeTrackIds = [];
     }
   }
 
@@ -383,16 +442,45 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     const candidates = hlsFiles.length > 0 ? hlsFiles : anyFiles;
 
     if (preferredAccessService) {
-      const preferredMatch = candidates.find((file) => file.accessService === preferredAccessService);
+      const preferredMatch = candidates.find((file) => this.accessServiceMatches(file.accessService, preferredAccessService));
       if (preferredMatch) {
         return preferredMatch;
       }
     }
 
-    return candidates.find((file) => file.accessService === 'StandardVideo')
-      ?? candidates.find((file) => file.accessService !== 'SpokenSubtitles')
+    return candidates.find((file) => this.isStandardAccessService(file.accessService))
+      ?? candidates.find((file) => !this.isSpokenAccessService(file.accessService))
       ?? candidates[0]
       ?? null;
+  }
+
+  private normalizeAccessServiceName(accessService: string | null | undefined): string {
+    if (typeof accessService !== 'string') {
+      return '';
+    }
+
+    return accessService.trim().toLowerCase();
+  }
+
+  private isSpokenAccessService(accessService: string | null | undefined): boolean {
+    const normalized = this.normalizeAccessServiceName(accessService);
+    return normalized === 'spokensubtitles';
+  }
+
+  private isStandardAccessService(accessService: string | null | undefined): boolean {
+    const normalized = this.normalizeAccessServiceName(accessService);
+    return normalized === 'standardvideo';
+  }
+
+  private accessServiceMatches(actual: string | null | undefined, preferred: string | null | undefined): boolean {
+    const normalizedActual = this.normalizeAccessServiceName(actual);
+    const normalizedPreferred = this.normalizeAccessServiceName(preferred);
+
+    if (!normalizedActual || !normalizedPreferred) {
+      return false;
+    }
+
+    return normalizedActual === normalizedPreferred;
   }
 
   private normalizeSubtitleMimeType(format: string | null | undefined): string {
@@ -536,7 +624,17 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       throw new Error('No playable stream URL found in video response.');
     }
 
+    const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
+    const enableSubtitlesForPlayback = this.isSpokenAccessService(selectedAccessService);
+    const textTracks = enableSubtitlesForPlayback ? this.buildTextTracks(primary?.subtitles) : [];
+
     this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
+    this.pushLog(
+      `Selected accessService=${selectedAccessService ?? 'unknown'} preferred=${preferredAccessService ?? 'none'} subtitles=${enableSubtitlesForPlayback ? 'on' : 'off'}`
+    );
+    if (preferredAccessService && !this.accessServiceMatches(selectedAccessService, preferredAccessService)) {
+      this.pushLog(`Preferred accessService ${preferredAccessService} not found for item ${itemId}; fell back to ${selectedAccessService ?? 'unknown'}`);
+    }
     this.updateDebugState({
       streamUrl,
       contentType: this.resolveMimeType(primary),
@@ -548,7 +646,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       title: firstEntry?.title ?? pageJson?.title ?? item?.title,
       subtitle: pageItem?.episodeName ?? pageItem?.showName ?? item?.subtitle,
       posterUrl: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl,
-      textTracks: this.buildTextTracks(primary?.subtitles),
+      accessService: selectedAccessService,
+      textTracks,
     };
   }
 
@@ -778,13 +877,14 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         this.updateNextUpVisibility(current ?? 0, duration ?? 0);
       });
       playerManager.addEventListener(EventType.PLAYER_LOAD_COMPLETE, () => {
-        if (this.pendingSubtitleTrackIds.length === 0) {
-          return;
-        }
-
         try {
           const textTracksManager = playerManager.getTextTracksManager?.();
           if (!textTracksManager) {
+            return;
+          }
+
+          if (this.pendingSubtitleTrackIds.length === 0) {
+            textTracksManager.setActiveByIds?.([]);
             return;
           }
 
