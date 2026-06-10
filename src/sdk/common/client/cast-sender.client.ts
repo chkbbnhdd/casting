@@ -309,8 +309,30 @@ export class CastSenderClient {
   async toggleSubtitles(): Promise<void> {
     try {
       const subtitlesEnabled = await this.transport.toggleSubtitles?.(this.state.queue);
+      const targetItemId = this.state.queue.activeItemId ?? this.state.queue.items[0]?.id ?? null;
+      const nextQueue = subtitlesEnabled === true || subtitlesEnabled === false
+        ? {
+            ...this.state.queue,
+            items: this.state.queue.items.map((item) => {
+              if (!targetItemId || item.id !== targetItemId) {
+                return item;
+              }
+
+              return {
+                ...item,
+                customData: {
+                  ...(item.customData ?? {}),
+                  preferredAccessService: subtitlesEnabled ? 'SpokenSubtitles' : 'StandardVideo',
+                },
+              };
+            }),
+            lastUpdatedIso: nowIso(),
+          }
+        : this.state.queue;
+
       this.emit({
         ...this.state,
+        queue: nextQueue,
         subtitlesEnabled: subtitlesEnabled ?? this.state.subtitlesEnabled,
         statusMessage: subtitlesEnabled === true ? 'Subtitles turned on.' : subtitlesEnabled === false ? 'Subtitles turned off.' : 'Subtitle track toggled.',
         lastError: null,
