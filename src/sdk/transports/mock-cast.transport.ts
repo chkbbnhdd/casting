@@ -7,7 +7,6 @@ export class MockCastTransport implements CastTransport {
 
   private lastQueue: CastQueueState | null = null;
   private uiOverrides: CastUiOverrides | null = null;
-  private subtitlesEnabled = false;
 
   async connect(state: CastQueueState): Promise<void> {
     this.lastQueue = cloneQueueState(state);
@@ -20,11 +19,6 @@ export class MockCastTransport implements CastTransport {
   async play(item: CastMediaItem, state: CastQueueState): Promise<void> {
     this.lastQueue = cloneQueueState(state);
     this.lastQueue.activeItemId = item.id;
-  }
-
-  async toggleSubtitles(_state: CastQueueState): Promise<boolean> {
-    this.subtitlesEnabled = !this.subtitlesEnabled;
-    return this.subtitlesEnabled;
   }
 
   async pause(state: CastQueueState): Promise<void> {

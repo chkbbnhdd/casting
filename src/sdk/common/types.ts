@@ -53,7 +53,6 @@ export interface CastSenderState {
   transportName: string;
   statusMessage: string;
   lastError: string | null;
-  subtitlesEnabled: boolean | null;
   uiOverrides: CastUiOverrides;
 }
 
@@ -63,7 +62,6 @@ export interface CastTransport {
   connect?(state: CastQueueState): Promise<void> | void;
   loadQueue?(state: CastQueueState): Promise<void> | void;
   play?(item: CastMediaItem, state: CastQueueState): Promise<void> | void;
-  toggleSubtitles?(state: CastQueueState): Promise<boolean> | boolean;
   pause?(state: CastQueueState): Promise<void> | void;
   stop?(state: CastQueueState): Promise<void> | void;
   disconnect?(): Promise<void> | void;

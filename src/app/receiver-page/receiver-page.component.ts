@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, OnDestroy, OnInit, signal } from '@angular/core';
 import { MediaFile } from '../../api/video-v1/model/mediaFile';
-import { Subtitles } from '../../api/video-v1/model/subtitles';
 
 declare global {
   interface Window {
@@ -28,15 +27,11 @@ interface ResolvedPlayback {
   title?: string;
   subtitle?: string;
   posterUrl?: string;
-  accessService?: string | null;
-  subtitlesEnabled?: boolean;
-  textTracks?: any[];
 }
 
 interface QueueItemRuntimeData {
   path: string | null;
   accessToken: string | null;
-  preferredAccessService: string | null;
 }
 
 interface QueueItemPreview {
@@ -198,8 +193,6 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   private storedActiveItemId: string | null = null;
   private lastDebugOverlayEventAt = 0;
   private lastDebugOverlayEvent: string | null = null;
-  private pendingSubtitleTrackIds: number[] = [];
-  private pendingSubtitlesEnabled = false;
 
   async ngOnInit(): Promise<void> {
     this.pushLog('Receiver booting');
@@ -391,12 +384,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     const rawPath = queueCustomData.path ?? mediaCustomData.path ?? selectedItem?.url ?? null;
     const accessToken = queueCustomData.accessToken ?? mediaCustomData.accessToken ?? null;
-    const preferredAccessService = queueCustomData.preferredAccessService ?? mediaCustomData.preferredAccessService ?? null;
 
     return {
       path: typeof rawPath === 'string' ? rawPath : null,
       accessToken: typeof accessToken === 'string' ? accessToken : null,
-      preferredAccessService: typeof preferredAccessService === 'string' ? preferredAccessService : null,
     };
   }
 
@@ -424,176 +415,25 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     loadRequestData.media.metadata = metadata;
-
-    const textTracks = resolvedPlayback.textTracks ?? [];
-    const subtitlesEnabled = resolvedPlayback.subtitlesEnabled === true;
-
-    if (textTracks.length) {
-      loadRequestData.media.tracks = textTracks;
-      this.pendingSubtitleTrackIds = textTracks
-        .map((track) => track?.trackId)
-        .filter((trackId): trackId is number => typeof trackId === 'number');
-      this.pendingSubtitlesEnabled = subtitlesEnabled;
-      loadRequestData.activeTrackIds = subtitlesEnabled && this.pendingSubtitleTrackIds.length > 0
-        ? [this.pendingSubtitleTrackIds[0]]
-        : [];
-    } else {
-      loadRequestData.media.tracks = [];
-      this.pendingSubtitleTrackIds = [];
-      this.pendingSubtitlesEnabled = false;
-      loadRequestData.activeTrackIds = [];
-    }
   }
 
-  private selectPlayableMediaFile(mediaFiles: MediaFile[], preferredAccessService: string | null = null): MediaFile | null {
+  private selectPlayableMediaFile(mediaFiles: MediaFile[]): MediaFile | null {
     const playableFiles = mediaFiles.filter((file) => !!file.url);
 
     if (playableFiles.length === 0) {
       return null;
     }
 
-    if (preferredAccessService) {
-      const preferredCandidates = playableFiles.filter((file) => this.accessServiceMatches(file.accessService, preferredAccessService));
-      if (preferredCandidates.length > 0) {
-        return preferredCandidates.find((file) => file.format === 'video/hls') ?? preferredCandidates[0] ?? null;
-      }
-    }
-
     const hlsFiles = playableFiles.filter((file) => file.format === 'video/hls');
     const candidates = hlsFiles.length > 0 ? hlsFiles : playableFiles;
 
-    return candidates.find((file) => this.isStandardAccessService(file.accessService))
-      ?? candidates.find((file) => !this.isSpokenAccessService(file.accessService))
-      ?? candidates[0]
-      ?? null;
-  }
-
-  private normalizeAccessServiceName(accessService: string | null | undefined): string {
-    if (typeof accessService !== 'string') {
-      return '';
-    }
-
-    return accessService.trim().toLowerCase().replace(/[^a-z]/g, '');
-  }
-
-  private isSpokenAccessService(accessService: string | null | undefined): boolean {
-    const normalized = this.normalizeAccessServiceName(accessService);
-    return normalized.includes('spoken') && normalized.includes('subtitle');
-  }
-
-  private isStandardAccessService(accessService: string | null | undefined): boolean {
-    const normalized = this.normalizeAccessServiceName(accessService);
-    return normalized.includes('standard') && normalized.includes('video');
-  }
-
-  private accessServiceMatches(actual: string | null | undefined, preferred: string | null | undefined): boolean {
-    const normalizedActual = this.normalizeAccessServiceName(actual);
-    const normalizedPreferred = this.normalizeAccessServiceName(preferred);
-
-    if (!normalizedActual || !normalizedPreferred) {
-      return false;
-    }
-
-    if (this.isSpokenAccessService(normalizedPreferred)) {
-      return this.isSpokenAccessService(normalizedActual);
-    }
-
-    if (this.isStandardAccessService(normalizedPreferred)) {
-      return this.isStandardAccessService(normalizedActual);
-    }
-
-    return normalizedActual === normalizedPreferred;
-  }
-
-  private resolveSubtitleTrackSource(
-    mediaFiles: MediaFile[],
-    selectedFile: MediaFile,
-    preferredAccessService: string | null,
-  ): Array<Subtitles> | null | undefined {
-    if (Array.isArray(selectedFile.subtitles) && selectedFile.subtitles.length > 0) {
-      return selectedFile.subtitles;
-    }
-
-    const spokenCandidate = mediaFiles.find(
-      (file) => this.isSpokenAccessService(file.accessService) && Array.isArray(file.subtitles) && file.subtitles.length > 0,
-    );
-    if (spokenCandidate) {
-      return spokenCandidate.subtitles;
-    }
-
-    if (preferredAccessService && this.isStandardAccessService(preferredAccessService)) {
-      return null;
-    }
-
-    const fallbackCandidate = mediaFiles.find((file) => Array.isArray(file.subtitles) && file.subtitles.length > 0);
-    return fallbackCandidate?.subtitles;
-  }
-
-  private normalizeSubtitleMimeType(format: string | null | undefined): string {
-    if (typeof format !== 'string' || !format.trim()) {
-      return 'text/vtt';
-    }
-
-    return format.split(';')[0]?.trim() || 'text/vtt';
-  }
-
-  private normalizeSubtitleLanguage(language: string | null | undefined): string {
-    if (typeof language !== 'string' || !language.trim()) {
-      return 'da';
-    }
-
-    const normalized = language.trim();
-    if (/^[a-z]{2,3}(-[A-Za-z0-9]+)*$/i.test(normalized)) {
-      return normalized.toLowerCase();
-    }
-
-    if (/combined|hearing|caption/i.test(normalized)) {
-      return 'da';
-    }
-
-    return 'und';
-  }
-
-  private mapSubtitleSubtype(language: string | null | undefined): string {
-    return /combined|hearing|caption/i.test(language ?? '') ? 'CAPTIONS' : 'SUBTITLES';
-  }
-
-  private buildTextTracks(subtitles: Array<Subtitles> | null | undefined): any[] {
-    if (!Array.isArray(subtitles) || subtitles.length === 0) {
-      return [];
-    }
-
-    const messages = window.cast?.framework?.messages;
-    const TrackCtor = messages?.Track;
-    const TrackType = messages?.TrackType;
-
-    return subtitles
-      .filter((subtitle) => typeof subtitle?.link === 'string' && !!subtitle.link)
-      .map((subtitle, index) => {
-        const track = typeof TrackCtor === 'function'
-          ? new TrackCtor(index + 1, TrackType?.TEXT ?? 'TEXT')
-          : {
-              trackId: index + 1,
-              type: TrackType?.TEXT ?? 'TEXT',
-            };
-
-        track.trackId = track.trackId ?? index + 1;
-        track.trackContentId = subtitle.link;
-        track.trackContentType = this.normalizeSubtitleMimeType(subtitle.format);
-        track.language = this.normalizeSubtitleLanguage(subtitle.language);
-        track.name = subtitle.language || `Subtitle ${index + 1}`;
-        track.subtype = this.mapSubtitleSubtype(subtitle.language);
-        track.isInband = false;
-
-        return track;
-      });
+    return candidates[0] ?? null;
   }
 
   private async resolvePlaybackFromQueueItem(item: any, loadRequestData?: any): Promise<ResolvedPlayback> {
     const runtimeData = this.getQueueItemRuntimeData(item, loadRequestData);
     const rawPath = runtimeData.path;
     const accessToken = runtimeData.accessToken;
-    const preferredAccessService = runtimeData.preferredAccessService;
     if (typeof rawPath !== 'string' || !rawPath.trim()) {
       throw new Error('Queue item path is missing.');
     }
@@ -664,26 +504,13 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     const mediaFiles = await videoResponse.json() as MediaFile[];
-    const primary = Array.isArray(mediaFiles) ? this.selectPlayableMediaFile(mediaFiles, preferredAccessService) : null;
+    const primary = Array.isArray(mediaFiles) ? this.selectPlayableMediaFile(mediaFiles) : null;
     const streamUrl = primary?.url;
     if (typeof streamUrl !== 'string' || !streamUrl) {
       throw new Error('No playable stream URL found in video response.');
     }
 
-    const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
-    const subtitlesEnabled = this.isSpokenAccessService(preferredAccessService);
-    const subtitleSource = subtitlesEnabled
-      ? this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService)
-      : null;
-    const textTracks = subtitlesEnabled ? this.buildTextTracks(subtitleSource) : [];
-
     this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
-    this.pushLog(
-      `Selected accessService=${selectedAccessService ?? 'unknown'} preferred=${preferredAccessService ?? 'none'} subtitles=${subtitlesEnabled ? 'on' : 'off'} tracks=${textTracks.length}`
-    );
-    if (preferredAccessService && !this.accessServiceMatches(selectedAccessService, preferredAccessService)) {
-      this.pushLog(`Preferred accessService ${preferredAccessService} not found for item ${itemId}; fell back to ${selectedAccessService ?? 'unknown'}`);
-    }
     this.updateDebugState({
       streamUrl,
       contentType: this.resolveMimeType(primary),
@@ -695,9 +522,6 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       title: firstEntry?.title ?? pageJson?.title ?? item?.title,
       subtitle: pageItem?.episodeName ?? pageItem?.showName ?? item?.subtitle,
       posterUrl: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl,
-      accessService: selectedAccessService,
-      subtitlesEnabled,
-      textTracks,
     };
   }
 
@@ -926,36 +750,6 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         this.durationSec.set(duration ?? 0);
         this.updateNextUpVisibility(current ?? 0, duration ?? 0);
       });
-      playerManager.addEventListener(EventType.PLAYER_LOAD_COMPLETE, () => {
-        try {
-          const textTracksManager = playerManager.getTextTracksManager?.();
-          if (!textTracksManager) {
-            return;
-          }
-
-          if (this.pendingSubtitleTrackIds.length === 0) {
-            textTracksManager.setActiveByIds?.([]);
-            return;
-          }
-
-          if (!this.pendingSubtitlesEnabled) {
-            textTracksManager.setActiveByIds?.([]);
-            this.recordReceiverEvent('Subtitle tracks available but disabled');
-            return;
-          }
-
-          const activeIds = textTracksManager.getActiveIds?.() ?? [];
-          if (activeIds.length > 0) {
-            return;
-          }
-
-          textTracksManager.setActiveByIds?.([this.pendingSubtitleTrackIds[0]]);
-          this.recordReceiverEvent('Subtitle track activated', String(this.pendingSubtitleTrackIds[0]));
-        } catch (error: any) {
-          this.pushLog('Failed to activate subtitle track: ' + (error?.message ?? String(error)));
-        }
-      });
-
       context.start();
       this.recordReceiverEvent('Receiver context started');
     } catch (e: any) {
