@@ -239,6 +239,41 @@
   flex-direction: column;
 }
 
+.idle-contrast-overlay {
+  position: fixed;
+  inset: 1.5rem;
+  z-index: 14;
+  border-radius: 24px;
+  background: linear-gradient(
+    90deg,
+    rgba(8, 12, 16, 0.38) 0%,
+    rgba(8, 12, 16, 0.26) 42%,
+    rgba(8, 12, 16, 0.3) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px) saturate(120%);
+  pointer-events: none;
+}
+
+.idle-bridge-overlay {
+  position: fixed;
+  top: 2.5rem;
+  bottom: 2.5rem;
+  left: calc(50% - 4.5rem);
+  width: 9rem;
+  z-index: 15;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(245, 249, 255, 0.1) 0%,
+    rgba(245, 249, 255, 0.03) 35%,
+    rgba(245, 249, 255, 0.08) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(14px) saturate(130%);
+  pointer-events: none;
+}
+
 .idle-copy {
   flex: 1;
   display: flex;
@@ -287,6 +322,21 @@
 }
 
 @media (max-width: 720px) {
+  .idle-contrast-overlay {
+    inset: 1rem;
+    border-radius: 18px;
+  }
+
+  .idle-bridge-overlay {
+    left: 1.5rem;
+    right: 1.5rem;
+    width: auto;
+    top: auto;
+    bottom: calc(6rem + min(45vh, 320px));
+    height: 3.8rem;
+    border-radius: 18px;
+  }
+
   .logo {
     left: 1rem;
     top: 1rem;
