@@ -13,7 +13,7 @@ const CAST_RECEIVER_SCRIPT_URL = 'https://www.gstatic.com/cast/sdk/libs/caf_rece
 const NEXT_UP_PREVIEW_SECONDS = 30;
 const CONTROLS_HIDE_DELAY_MS = 5000;
 const DEBUG_EVENT_THROTTLE_MS = 500;
-const SHOW_DEBUG_OVERLAY = true;
+const SHOW_DEBUG_OVERLAY = false;
 const CONFIG_ENDPOINT_URL = 'https://prod95-cdn.dr-massive.com/api/config?device=chromecast&ff=idp%2Cldp%2Crpt&include=classification%2Csubscription%2Csitemap%2Cnavigation%2Cgeneral%2Ci18n%2Cplayback%2Clinear%2CfeatureFlags&lang=da&segments=drtv&sub=Registered';
 const PAGE_ENDPOINT_BASE_URL = 'https://prod95-cdn.dr-massive.com/api/page';
 const VIDEO_ENDPOINT_BASE_URL = 'https://prod95.dr-massive.com/api/account/items';
