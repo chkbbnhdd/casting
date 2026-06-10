@@ -12,7 +12,8 @@ declare global {
 const CAST_RECEIVER_SCRIPT_URL = 'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js';
 const NEXT_UP_PREVIEW_SECONDS = 30;
 const CONTROLS_HIDE_DELAY_MS = 5000;
-const SHOW_DEBUG_OVERLAY = false;
+const DEBUG_EVENT_THROTTLE_MS = 500;
+const SHOW_DEBUG_OVERLAY = true;
 const CONFIG_ENDPOINT_URL = 'https://prod95-cdn.dr-massive.com/api/config?device=chromecast&ff=idp%2Cldp%2Crpt&include=classification%2Csubscription%2Csitemap%2Cnavigation%2Cgeneral%2Ci18n%2Cplayback%2Clinear%2CfeatureFlags&lang=da&segments=drtv&sub=Registered';
 const PAGE_ENDPOINT_BASE_URL = 'https://prod95-cdn.dr-massive.com/api/page';
 const VIDEO_ENDPOINT_BASE_URL = 'https://prod95.dr-massive.com/api/account/items';
@@ -133,6 +134,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
   private storedQueueItems: any[] = [];
   private storedActiveItemId: string | null = null;
+  private lastDebugOverlayEventAt = 0;
+  private lastDebugOverlayEvent: string | null = null;
 
   async ngOnInit(): Promise<void> {
     this.pushLog('Receiver booting');
@@ -203,8 +206,25 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
   private recordReceiverEvent(eventName: string, details?: string): void {
     const summary = details ? `${eventName}: ${details}` : eventName;
-    this.updateDebugState({ lastEvent: summary });
     this.pushLog(summary);
+
+    if (!this.showDebugOverlay) {
+      return;
+    }
+
+    const isNoisyEvent = summary.startsWith('CORE ') || summary.startsWith('DEBUG ');
+    const now = Date.now();
+    if (isNoisyEvent && now - this.lastDebugOverlayEventAt < DEBUG_EVENT_THROTTLE_MS) {
+      return;
+    }
+
+    if (summary === this.lastDebugOverlayEvent) {
+      return;
+    }
+
+    this.lastDebugOverlayEvent = summary;
+    this.lastDebugOverlayEventAt = now;
+    this.updateDebugState({ lastEvent: summary });
   }
 
   private updateNextUpVisibility(currentTimeSec: number = this.currentTimeSec(), durationSec: number = this.durationSec()): void {
@@ -660,7 +680,6 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         }
       });
       playerManager.addEventListener(EventType.TIME_UPDATE, () => {
-        this.updateDebugState({ lastEvent: 'Time update received' });
         const current = playerManager.getCurrentTimeSec();
         const duration = playerManager.getDurationSec();
         this.currentTimeSec.set(current ?? 0);

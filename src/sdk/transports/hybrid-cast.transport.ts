@@ -26,8 +26,15 @@ export class HybridCastTransport implements CastTransport {
   async connect(state: CastQueueState): Promise<void> {
     const primaryTransport = this.chooseTransport();
     if (primaryTransport === this.googleTransport) {
-      await primaryTransport.connect?.(state);
-      return;
+      try {
+        await primaryTransport.connect?.(state);
+        return;
+      } catch (error) {
+        // On non-Chrome runtimes (for example iOS/Android webviews), the web sender SDK may be unavailable.
+        // Fall back to mock transport so the SDK core still works with a platform-specific bridge transport.
+        console.warn('[HybridCastTransport] Google Cast transport unavailable, falling back to mock transport.', error);
+        this.activeTransport = this.mockTransport;
+      }
     }
 
     await this.mockTransport.connect?.(state);

@@ -1,47 +1,51 @@
 # DR Receiver App
 
-## Step 1: (Check)
-Få POC til at virke på en skærm
+## Step 1 - POC: (Done)
+- Få POC til at virke på en skærm
 
-Findings:
-- Finde en måde at håndtere de forskellige states (connected via play, casting just connected, playing)
-- CORS akamai?
-- Formater? / mimetype?
+## Step 2 - Data flow: (Igang)
 
-
-## Step 2: (Igang)
-
-Input: token, refreshtoken, AssetsId
-(AssetId), Id på video
+Input: token, refreshtoken, pathId
+(pathId)
 
 Kald følgende kald i denne orden:
 
 1. Config:
 2. Page:
 3. Item (Video):
-4. Get next (queue)
-
 
 Afspil video på receiver
 
-Spørgsmål:
-- Promotion Spot data (Figma)?
+Mangler:
+- Finde en måde at håndtere de forskellige states (connected via play, casting just connected, playing)
 
 
-## Step 3: (Påbegyndt)
+## Step 3: (Igang)
 - Lav et repo (Check) 
-- Få lavet en DR Receiver Webapp på et miljø og få registeret det i Google SDK console
-- Sikre at Webapp kan afspille video filer (CORS)
+- Få lavet en DR Receiver Webapp på et miljø (Check) 
+- Public url for receiver og test app (Afventer)
+- Registeret det i Google SDK console (blocked)
 
 
-## Step 4:
+## Step 4 - Tracking (Next up):
 Introducer tracking: NPAW - Nice People At Work (trackingtype: qoe - quality of experince), NILSEN (Videotracking), Segment (Videotracking)
 
 (Brug inspiration fra DR LYD receiver kode)
 
-## Step 5 (Note fra Thomas):
-Detect hvilken type device er der tale om (script fra google)
+## Step 5 - Receiver UI
+- Sikre at Receiver UI er korrekt opsat
 
+Spørgsmål:
+- Hvilken visning skal der benyttes?
 
-## Step versionering
-Der skal kigges på en proces omkring version der skal vises på siden, er det version af receiver koden eller andet?
+## Step 6 - Next up
+- Next up logik skal implementeres i koden
+
+## Step 7 - Script (Note fra Thomas):
+- Detect hvilken type device er der tale om (script fra google)
+
+## Step 8 Versionering
+- Vis version på skærm (Hvor kommer den fra?)
+
+## Step 9 Quality Assurance
+- Test af receiver webapp på forskellige devices
