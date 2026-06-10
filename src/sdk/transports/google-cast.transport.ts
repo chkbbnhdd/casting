@@ -6,7 +6,7 @@ type GoogleCastMediaNamespace = {
   MediaInfo: new (contentId: string, contentType: string) => unknown;
   GenericMediaMetadata: new () => { title?: string; subtitle?: string; images?: unknown[] };
   Image: new (url: string) => unknown;
-  LoadRequest: new (mediaInfo: unknown) => { autoplay?: boolean; customData?: Record<string, unknown>; currentTime?: number };
+  LoadRequest: new (mediaInfo: unknown) => { autoplay?: boolean; customData?: Record<string, unknown> };
   EditTracksInfoRequest?: new (activeTrackIds: number[]) => { activeTrackIds?: number[] };
   StreamType?: {
     BUFFERED?: unknown;
@@ -23,7 +23,6 @@ type GoogleCastSession = {
 type GoogleCastMediaSession = {
   activeTrackIds?: number[] | null;
   editTracksInfo?: (request: unknown, successCallback?: () => void, errorCallback?: (error: unknown) => void) => Promise<void> | void;
-  getEstimatedTime?: () => number;
   media?: {
     tracks?: Array<{ trackId?: number; type?: string }> | null;
   } | null;

@@ -30,6 +30,7 @@ interface ResolvedPlayback {
   posterUrl?: string;
   accessService?: string | null;
   subtitlesEnabled?: boolean;
+  textTracks?: any[];
 }
 
 interface QueueItemRuntimeData {
@@ -424,11 +425,24 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     loadRequestData.media.metadata = metadata;
 
+    const textTracks = resolvedPlayback.textTracks ?? [];
     const subtitlesEnabled = resolvedPlayback.subtitlesEnabled === true;
-    // Do not inject sidecar text tracks into CAF LOAD request.
-    // Some streams fail with 905 when custom tracks are attached.
-    this.pendingSubtitleTrackIds = [];
-    this.pendingSubtitlesEnabled = subtitlesEnabled;
+
+    if (textTracks.length) {
+      loadRequestData.media.tracks = textTracks;
+      this.pendingSubtitleTrackIds = textTracks
+        .map((track) => track?.trackId)
+        .filter((trackId): trackId is number => typeof trackId === 'number');
+      this.pendingSubtitlesEnabled = subtitlesEnabled;
+      loadRequestData.activeTrackIds = subtitlesEnabled && this.pendingSubtitleTrackIds.length > 0
+        ? [this.pendingSubtitleTrackIds[0]]
+        : [];
+    } else {
+      loadRequestData.media.tracks = [];
+      this.pendingSubtitleTrackIds = [];
+      this.pendingSubtitlesEnabled = false;
+      loadRequestData.activeTrackIds = [];
+    }
   }
 
   private selectPlayableMediaFile(mediaFiles: MediaFile[], preferredAccessService: string | null = null): MediaFile | null {
@@ -496,14 +510,23 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     selectedFile: MediaFile,
     preferredAccessService: string | null,
   ): Array<Subtitles> | null | undefined {
-    void mediaFiles;
-    void preferredAccessService;
-
     if (Array.isArray(selectedFile.subtitles) && selectedFile.subtitles.length > 0) {
       return selectedFile.subtitles;
     }
 
-    return null;
+    const spokenCandidate = mediaFiles.find(
+      (file) => this.isSpokenAccessService(file.accessService) && Array.isArray(file.subtitles) && file.subtitles.length > 0,
+    );
+    if (spokenCandidate) {
+      return spokenCandidate.subtitles;
+    }
+
+    if (preferredAccessService && this.isStandardAccessService(preferredAccessService)) {
+      return null;
+    }
+
+    const fallbackCandidate = mediaFiles.find((file) => Array.isArray(file.subtitles) && file.subtitles.length > 0);
+    return fallbackCandidate?.subtitles;
   }
 
   private normalizeSubtitleMimeType(format: string | null | undefined): string {
@@ -649,12 +672,14 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
     const subtitlesEnabled = this.isSpokenAccessService(preferredAccessService);
-    const subtitleSource = this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService);
-    const subtitleCandidates = this.buildTextTracks(subtitleSource);
+    const subtitleSource = subtitlesEnabled
+      ? this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService)
+      : null;
+    const textTracks = subtitlesEnabled ? this.buildTextTracks(subtitleSource) : [];
 
     this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
     this.pushLog(
-      `Selected accessService=${selectedAccessService ?? 'unknown'} preferred=${preferredAccessService ?? 'none'} subtitles=${subtitlesEnabled ? 'on' : 'off'} tracks=${subtitleCandidates.length}`
+      `Selected accessService=${selectedAccessService ?? 'unknown'} preferred=${preferredAccessService ?? 'none'} subtitles=${subtitlesEnabled ? 'on' : 'off'} tracks=${textTracks.length}`
     );
     if (preferredAccessService && !this.accessServiceMatches(selectedAccessService, preferredAccessService)) {
       this.pushLog(`Preferred accessService ${preferredAccessService} not found for item ${itemId}; fell back to ${selectedAccessService ?? 'unknown'}`);
@@ -672,6 +697,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       posterUrl: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl,
       accessService: selectedAccessService,
       subtitlesEnabled,
+      textTracks,
     };
   }
 
