@@ -30,7 +30,6 @@ interface ResolvedPlayback {
   posterUrl?: string;
   accessService?: string | null;
   subtitlesEnabled?: boolean;
-  textTracks?: any[];
 }
 
 interface QueueItemRuntimeData {
@@ -425,24 +424,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     loadRequestData.media.metadata = metadata;
 
-    const textTracks = resolvedPlayback.textTracks ?? [];
     const subtitlesEnabled = resolvedPlayback.subtitlesEnabled === true;
-
-    if (textTracks.length) {
-      loadRequestData.media.tracks = textTracks;
-      this.pendingSubtitleTrackIds = textTracks
-        .map((track) => track?.trackId)
-        .filter((trackId): trackId is number => typeof trackId === 'number');
-      this.pendingSubtitlesEnabled = subtitlesEnabled;
-      loadRequestData.activeTrackIds = subtitlesEnabled && this.pendingSubtitleTrackIds.length > 0
-        ? [this.pendingSubtitleTrackIds[0]]
-        : [];
-    } else {
-      loadRequestData.media.tracks = [];
-      this.pendingSubtitleTrackIds = [];
-      this.pendingSubtitlesEnabled = false;
-      loadRequestData.activeTrackIds = [];
-    }
+    // Do not inject sidecar text tracks into CAF LOAD request.
+    // Some streams fail with 905 when custom tracks are attached.
+    this.pendingSubtitleTrackIds = [];
+    this.pendingSubtitlesEnabled = subtitlesEnabled;
   }
 
   private selectPlayableMediaFile(mediaFiles: MediaFile[], preferredAccessService: string | null = null): MediaFile | null {
@@ -664,11 +650,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
     const subtitlesEnabled = this.isSpokenAccessService(preferredAccessService);
     const subtitleSource = this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService);
-    const textTracks = this.buildTextTracks(subtitleSource);
+    const subtitleCandidates = this.buildTextTracks(subtitleSource);
 
     this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
     this.pushLog(
-      `Selected accessService=${selectedAccessService ?? 'unknown'} preferred=${preferredAccessService ?? 'none'} subtitles=${subtitlesEnabled ? 'on' : 'off'} tracks=${textTracks.length}`
+      `Selected accessService=${selectedAccessService ?? 'unknown'} preferred=${preferredAccessService ?? 'none'} subtitles=${subtitlesEnabled ? 'on' : 'off'} tracks=${subtitleCandidates.length}`
     );
     if (preferredAccessService && !this.accessServiceMatches(selectedAccessService, preferredAccessService)) {
       this.pushLog(`Preferred accessService ${preferredAccessService} not found for item ${itemId}; fell back to ${selectedAccessService ?? 'unknown'}`);
@@ -686,7 +672,6 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       posterUrl: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl,
       accessService: selectedAccessService,
       subtitlesEnabled,
-      textTracks,
     };
   }
 
