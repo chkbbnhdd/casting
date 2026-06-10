@@ -349,8 +349,6 @@ export class GoogleCastTransport implements CastTransport {
       throw new Error('No active queue item is available for subtitle toggling.');
     }
 
-    const currentlyEnabled = itemToLoad.customData?.['preferredAccessService'] === 'SpokenSubtitles';
-    const nextEnabled = !currentlyEnabled;
     const mediaSession = session.getMediaSession?.() ?? null;
 
     const textTracks = (mediaSession?.media?.tracks ?? []).filter((track) => {
@@ -364,82 +362,53 @@ export class GoogleCastTransport implements CastTransport {
     const currentActiveIds = mediaSession?.activeTrackIds ?? [];
     const hasActiveTextTrack = currentActiveIds.some((trackId) => textTrackIds.includes(trackId));
 
-    if (mediaSession?.editTracksInfo && textTrackIds.length > 0) {
-      const shouldEnableViaTracks = !hasActiveTextTrack;
-      const nextActiveIds = shouldEnableViaTracks ? [textTrackIds[0]] : [];
+    if (!mediaSession?.editTracksInfo || textTrackIds.length === 0) {
+      throw new Error('No editable subtitle tracks are available for this stream.');
+    }
 
-      const mediaNamespace = chromeCastWindow.chrome?.cast?.media;
-      const request = typeof mediaNamespace?.EditTracksInfoRequest === 'function'
-        ? new mediaNamespace.EditTracksInfoRequest(nextActiveIds)
-        : { activeTrackIds: nextActiveIds };
+    const shouldEnableViaTracks = !hasActiveTextTrack;
+    const nextActiveIds = shouldEnableViaTracks ? [textTrackIds[0]] : [];
 
-      await new Promise<void>((resolve, reject) => {
-        try {
-          const maybePromise = mediaSession.editTracksInfo?.(
-            request,
-            () => resolve(),
-            (error: unknown) => reject(error instanceof Error ? error : new Error(String(error)))
-          );
+    const mediaNamespace = chromeCastWindow.chrome?.cast?.media;
+    const request = typeof mediaNamespace?.EditTracksInfoRequest === 'function'
+      ? new mediaNamespace.EditTracksInfoRequest(nextActiveIds)
+      : { activeTrackIds: nextActiveIds };
 
-          if (maybePromise && typeof (maybePromise as Promise<void>).then === 'function') {
-            (maybePromise as Promise<void>).then(resolve).catch(reject);
-          }
-        } catch (error) {
-          reject(error);
+    await new Promise<void>((resolve, reject) => {
+      try {
+        const maybePromise = mediaSession.editTracksInfo?.(
+          request,
+          () => resolve(),
+          (error: unknown) => reject(error instanceof Error ? error : new Error(String(error)))
+        );
+
+        if (maybePromise && typeof (maybePromise as Promise<void>).then === 'function') {
+          (maybePromise as Promise<void>).then(resolve).catch(reject);
         }
-      });
-
-      const nextState: CastQueueState = {
-        ...cloneQueueState(state),
-        items: state.items.map((item) => {
-          if (item.id !== itemToLoad.id) {
-            return item;
-          }
-
-          return {
-            ...item,
-            customData: {
-              ...(item.customData ?? {}),
-              preferredAccessService: shouldEnableViaTracks ? 'SpokenSubtitles' : 'StandardVideo',
-            },
-          };
-        }),
-      };
-
-      this.lastQueue = cloneQueueState(nextState);
-      return shouldEnableViaTracks;
-    }
-
-    if (!session.loadMedia) {
-      throw new Error('Subtitle toggling requires editable tracks or loadMedia support.');
-    }
-
-    const nextItem: CastMediaItem = {
-      ...itemToLoad,
-      customData: {
-        ...(itemToLoad.customData ?? {}),
-        preferredAccessService: nextEnabled ? 'SpokenSubtitles' : 'StandardVideo',
-      },
-    };
+      } catch (error) {
+        reject(error);
+      }
+    });
 
     const nextState: CastQueueState = {
       ...cloneQueueState(state),
-      items: state.items.map((item) => item.id === nextItem.id ? nextItem : item),
+      items: state.items.map((item) => {
+        if (item.id !== itemToLoad.id) {
+          return item;
+        }
+
+        return {
+          ...item,
+          customData: {
+            ...(item.customData ?? {}),
+            preferredAccessService: shouldEnableViaTracks ? 'SpokenSubtitles' : 'StandardVideo',
+          },
+        };
+      }),
     };
 
-    const loadRequest = createLoadRequest(nextItem, nextState, chromeCastWindow) as { currentTime?: number } | null;
-    if (!loadRequest) {
-      throw new Error('Could not create Google Cast media request for subtitle toggle fallback.');
-    }
-
-    const estimatedTime = mediaSession?.getEstimatedTime?.();
-    if (typeof estimatedTime === 'number' && Number.isFinite(estimatedTime) && estimatedTime > 0) {
-      loadRequest.currentTime = estimatedTime;
-    }
-
-    await session.loadMedia(loadRequest);
     this.lastQueue = cloneQueueState(nextState);
-    return nextEnabled;
+    return shouldEnableViaTracks;
   }
 
   async stop(state: CastQueueState): Promise<void> {

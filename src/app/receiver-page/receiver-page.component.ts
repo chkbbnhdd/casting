@@ -663,10 +663,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
     const subtitlesEnabled = this.isSpokenAccessService(preferredAccessService);
-    const subtitleSource = subtitlesEnabled
-      ? this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService)
-      : null;
-    const textTracks = subtitlesEnabled ? this.buildTextTracks(subtitleSource) : [];
+    const subtitleSource = this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService);
+    const textTracks = this.buildTextTracks(subtitleSource);
 
     this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
     this.pushLog(
