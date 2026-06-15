@@ -437,9 +437,13 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     try {
       const SeekRequestDataCtor = window.cast?.framework?.messages?.SeekRequestData;
+      const ResumeState = window.cast?.framework?.messages?.ResumeState;
       if (typeof playerManager?.seek === 'function' && typeof SeekRequestDataCtor === 'function') {
         const seekRequestData = new SeekRequestDataCtor();
         seekRequestData.currentTime = clampedTargetSec;
+        if (ResumeState?.PLAYBACK_START) {
+          seekRequestData.resumeState = ResumeState.PLAYBACK_START;
+        }
         playerManager.seek(seekRequestData);
         seekApplied = true;
       }
