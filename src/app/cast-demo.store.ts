@@ -1,6 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import {
   CastSenderClient,
+  CastSessionUpdateMessage,
   GoogleCastLauncherDiagnostics,
   HybridCastTransport,
   SequentialQueueStrategy,
@@ -76,6 +77,14 @@ export class CastDemoStore {
 
   async pause(): Promise<void> {
     await this.client.pause();
+  }
+
+  async sendSessionUpdate(payload: CastSessionUpdateMessage): Promise<void> {
+    await this.client.sendSessionUpdate(payload);
+  }
+
+  async skipTimeCode(): Promise<void> {
+    await this.client.skipTimeCode();
   }
 
   async toggleSubtitles(): Promise<void> {

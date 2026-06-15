@@ -1,4 +1,12 @@
-import { CastMediaItem, CastQueueState, CastTransport, CastUiOverrides } from '../common/types';
+import {
+  CastCustomNamespaceMessage,
+  CastMediaItem,
+  CastQueueState,
+  CastSessionUpdateMessage,
+  CastSkipTimeCodeMessage,
+  CastTransport,
+  CastUiOverrides,
+} from '../common/types';
 import { GoogleCastTransport } from './google-cast.transport';
 import { MockCastTransport } from './mock-cast.transport';
 
@@ -48,6 +56,14 @@ export class HybridCastTransport implements CastTransport {
     await this.activeTransport.play?.(item, state);
   }
 
+  async sendSessionUpdate(payload: CastSessionUpdateMessage): Promise<void> {
+    await this.activeTransport.sendSessionUpdate?.(payload);
+  }
+
+  async sendSkipTimeCode(payload: CastSkipTimeCodeMessage): Promise<void> {
+    await this.activeTransport.sendSkipTimeCode?.(payload);
+  }
+
   async toggleSubtitles(state: CastQueueState): Promise<boolean> {
     return await this.activeTransport.toggleSubtitles?.(state) ?? false;
   }
@@ -62,6 +78,11 @@ export class HybridCastTransport implements CastTransport {
 
   async disconnect(): Promise<void> {
     await this.activeTransport.disconnect?.();
+  }
+
+  setReceiverMessageListener(listener: ((payload: CastCustomNamespaceMessage) => void) | null): void {
+    this.googleTransport.setReceiverMessageListener?.(listener);
+    this.mockTransport.setReceiverMessageListener?.(listener);
   }
 
   setUiOverrides(overrides: Partial<CastUiOverrides>): void {

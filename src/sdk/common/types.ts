@@ -24,6 +24,50 @@ export interface CastReceiverQueuePayload {
   sentAtIso: string;
 }
 
+export interface CastSessionUpdateAuth {
+  accessToken: string;
+  idToken: string;
+}
+
+export interface CastSessionUpdateTracking {
+  anonymousId: string;
+}
+
+export interface CastSessionUpdateMessage {
+  type: 'sessionUpdate';
+  auth: CastSessionUpdateAuth;
+  segments: string[];
+  tracking: CastSessionUpdateTracking;
+}
+
+export interface CastTimeCodeAvailabilityMessage {
+  type: 'timeCodeAvailability';
+  visible: boolean;
+  timeCodeType: string;
+  startTime: number;
+  endTime: number;
+  duration: number;
+}
+
+export interface CastSkipTimeCodeMessage {
+  type: 'skipTimeCode';
+  timeCodeType: string;
+}
+
+export type CastCustomNamespaceMessage =
+  | CastSessionUpdateMessage
+  | CastTimeCodeAvailabilityMessage
+  | CastSkipTimeCodeMessage;
+
+export interface CastSkipControlState {
+  visible: boolean;
+  label: string;
+  timeCodeType: string | null;
+  startTime: number | null;
+  endTime: number | null;
+  duration: number | null;
+}
+
 export interface CastUiOverrides {
   routeButtonLabel: string;
   queueTitle: string;
@@ -54,6 +98,7 @@ export interface CastSenderState {
   statusMessage: string;
   lastError: string | null;
   subtitlesEnabled: boolean | null;
+  skipControl: CastSkipControlState;
   uiOverrides: CastUiOverrides;
 }
 
@@ -63,6 +108,9 @@ export interface CastTransport {
   connect?(state: CastQueueState): Promise<void> | void;
   loadQueue?(state: CastQueueState): Promise<void> | void;
   play?(item: CastMediaItem, state: CastQueueState): Promise<void> | void;
+  sendSessionUpdate?(payload: CastSessionUpdateMessage): Promise<void> | void;
+  sendSkipTimeCode?(payload: CastSkipTimeCodeMessage): Promise<void> | void;
+  setReceiverMessageListener?(listener: ((payload: CastCustomNamespaceMessage) => void) | null): void;
   toggleSubtitles?(state: CastQueueState): Promise<boolean> | boolean;
   pause?(state: CastQueueState): Promise<void> | void;
   stop?(state: CastQueueState): Promise<void> | void;

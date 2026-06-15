@@ -39,6 +39,26 @@
           <dd>{{ debugState().contentType ?? '-' }}</dd>
         </div>
         <div>
+          <dt>Session accessToken</dt>
+          <dd>{{ debugState().sessionAccessToken ?? '-' }}</dd>
+        </div>
+        <div>
+          <dt>Session idToken</dt>
+          <dd>{{ debugState().sessionIdToken ?? '-' }}</dd>
+        </div>
+        <div>
+          <dt>Session anonymousId</dt>
+          <dd>{{ debugState().sessionAnonymousId ?? '-' }}</dd>
+        </div>
+        <div>
+          <dt>Session segments</dt>
+          <dd>{{ debugState().sessionSegments.length ? debugState().sessionSegments.join(', ') : '-' }}</dd>
+        </div>
+        <div>
+          <dt>Session updated</dt>
+          <dd>{{ debugState().sessionUpdatedAt ?? '-' }}</dd>
+        </div>
+        <div>
           <dt>Player state</dt>
           <dd>{{ debugState().playerState ?? '-' }}</dd>
         </div>

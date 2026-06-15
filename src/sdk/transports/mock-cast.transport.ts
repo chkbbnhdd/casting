@@ -1,4 +1,13 @@
-import { CastMediaItem, CastQueueState, CastTransport, CastUiOverrides, defaultCastUiOverrides } from '../common/types';
+import {
+  CastCustomNamespaceMessage,
+  CastMediaItem,
+  CastQueueState,
+  CastSessionUpdateMessage,
+  CastSkipTimeCodeMessage,
+  CastTransport,
+  CastUiOverrides,
+  defaultCastUiOverrides,
+} from '../common/types';
 import { cloneQueueState, mergeUiOverrides } from '../common/utils';
 
 export class MockCastTransport implements CastTransport {
@@ -20,6 +29,18 @@ export class MockCastTransport implements CastTransport {
   async play(item: CastMediaItem, state: CastQueueState): Promise<void> {
     this.lastQueue = cloneQueueState(state);
     this.lastQueue.activeItemId = item.id;
+  }
+
+  async sendSessionUpdate(_payload: CastSessionUpdateMessage): Promise<void> {
+    return;
+  }
+
+  async sendSkipTimeCode(_payload: CastSkipTimeCodeMessage): Promise<void> {
+    return;
+  }
+
+  setReceiverMessageListener(_listener: ((payload: CastCustomNamespaceMessage) => void) | null): void {
+    return;
   }
 
   async toggleSubtitles(_state: CastQueueState): Promise<boolean> {

@@ -27,7 +27,7 @@ Mangler:
 - Registeret det i Google SDK console (blocked)
 
 
-## Step 4 - Tracking (Next up):
+## Step 4 - Tracking (Comming soon):
 Introducer tracking: NPAW - Nice People At Work (trackingtype: qoe - quality of experince), NILSEN (Videotracking), Segment (Videotracking)
 
 (Brug inspiration fra DR LYD receiver kode)
@@ -38,11 +38,13 @@ Introducer tracking: NPAW - Nice People At Work (trackingtype: qoe - quality of 
 Spørgsmål:
 - Hvilken visning skal der benyttes?
 
-## Step 6 - Next up
+## Step 6 - Skip & Next up
+- Skip logik
 - Next up logik skal implementeres i koden
 
-## Step 7 - Script (Note fra Thomas):
+## Step 7 - Script & Bitrate (Note fra Thomas):
 - Detect hvilken type device er der tale om (script fra google)
+- Sikre at Shaka configuration er sat korrekt (bitrates)
 
 ## Step 8 Versionering
 - Vis version på skærm (Hvor kommer den fra?)

@@ -86,7 +86,67 @@
         </div>
       </section>
 
+      <article class="panel channel-test" aria-label="Custom channel test payload">
+        <header>
+          <div>
+            <p class="section-label">Custom Channel Test</p>
+          </div>
+        </header>
+
+        <div class="sample-grid">
+          <label class="sample-field">
+            <span>Access Token</span>
+            <textarea
+              rows="2"
+              [ngModel]="sessionUpdateDraft().accessToken"
+              (ngModelChange)="onSessionUpdateDraftChange('accessToken', $event)"
+              placeholder="sessionUpdate.auth.accessToken"
+            ></textarea>
+          </label>
+
+          <label class="sample-field">
+            <span>ID Token</span>
+            <textarea
+              rows="2"
+              [ngModel]="sessionUpdateDraft().idToken"
+              (ngModelChange)="onSessionUpdateDraftChange('idToken', $event)"
+              placeholder="sessionUpdate.auth.idToken"
+            ></textarea>
+          </label>
+
+          <label class="sample-field">
+            <span>Segments (comma/newline separated)</span>
+            <textarea
+              rows="2"
+              [ngModel]="sessionUpdateDraft().segments"
+              (ngModelChange)="onSessionUpdateDraftChange('segments', $event)"
+              placeholder="segment-a, segment-b"
+            ></textarea>
+          </label>
+
+          <label class="sample-field">
+            <span>Anonymous ID</span>
+            <input
+              type="text"
+              [ngModel]="sessionUpdateDraft().anonymousId"
+              (ngModelChange)="onSessionUpdateDraftChange('anonymousId', $event)"
+              placeholder="sessionUpdate.tracking.anonymousId"
+            />
+          </label>
+
+          <div class="sample-actions">
+            <button type="button" class="secondary sample-submit" (click)="sendSessionUpdate()">
+              Send sessionUpdate on urn:x-cast:dk.dr.tv.chromecast
+            </button>
+            @if (sessionUpdateStatus(); as updateStatus) {
+              <p class="channel-status">{{ updateStatus }}</p>
+            }
+          </div>
+        </div>
+      </article>
+
       <section class="layout">
+
         <article class="panel composer">
           <header>
             <div>
@@ -124,6 +184,7 @@
               </button>
             </div>
           </div>
+
         </article>
 
         <article class="panel queue">
@@ -137,6 +198,9 @@
 
           <div>
             <button type="button" class="secondary" (click)="store.playSelected()">Play selected</button>
+            @if (state().skipControl.visible) {
+              <button type="button" class="primary" (click)="skipTimeCode()">{{ state().skipControl.label }}</button>
+            }
             <button
               type="button"
               [class.primary]="state().subtitlesEnabled === true"

@@ -2,6 +2,14 @@ import { CommonModule } from '@angular/common';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CastDemoStore, VideoDraft } from '../cast-demo.store';
+import { CastSessionUpdateMessage } from '../../sdk';
+
+interface SessionUpdateDraft {
+  accessToken: string;
+  idToken: string;
+  segments: string;
+  anonymousId: string;
+}
 
 @Component({
   selector: 'app-sender-page',
@@ -28,6 +36,13 @@ export class SenderPageComponent {
   protected readonly logs = this.store.logs;
   protected readonly launcherDiagnostics = this.store.launcherDiagnostics;
   protected readonly draft = this.store.draft;
+  protected readonly sessionUpdateDraft = signal<SessionUpdateDraft>({
+    accessToken: '',
+    idToken: '',
+    segments: '',
+    anonymousId: '',
+  });
+  protected readonly sessionUpdateStatus = signal<string | null>(null);
 
   protected onDraftChange(field: keyof VideoDraft, value: string): void {
     this.store.updateDraft({ [field]: value } as Partial<VideoDraft>);
@@ -49,5 +64,47 @@ export class SenderPageComponent {
 
   protected clearLogs(): void {
     this.store.clearLogs();
+  }
+
+  protected onSessionUpdateDraftChange(field: keyof SessionUpdateDraft, value: string): void {
+    this.sessionUpdateDraft.update((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  protected async sendSessionUpdate(): Promise<void> {
+    const draft = this.sessionUpdateDraft();
+    const accessToken = draft.accessToken.trim();
+    const idToken = draft.idToken.trim();
+    const anonymousId = draft.anonymousId.trim();
+    const segments = draft.segments
+      .split(/[\n,]/)
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0);
+
+    if (!accessToken || !idToken || !anonymousId) {
+      this.sessionUpdateStatus.set('Fill accessToken, idToken, and anonymousId before sending.');
+      return;
+    }
+
+    const payload: CastSessionUpdateMessage = {
+      type: 'sessionUpdate',
+      auth: {
+        accessToken,
+        idToken,
+      },
+      segments,
+      tracking: {
+        anonymousId,
+      },
+    };
+
+    await this.store.sendSessionUpdate(payload);
+    this.sessionUpdateStatus.set(`Session update sent (${segments.length} segments).`);
+  }
+
+  protected async skipTimeCode(): Promise<void> {
+    await this.store.skipTimeCode();
   }
 }

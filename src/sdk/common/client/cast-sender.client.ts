@@ -1,7 +1,10 @@
 import {
+  CastCustomNamespaceMessage,
   CastMediaItem,
   CastQueueState,
+  CastSkipTimeCodeMessage,
   CastQueueStrategy,
+  CastSessionUpdateMessage,
   CastSenderState,
   CastTransport,
   CastUiOverrides,
@@ -44,6 +47,26 @@ export class CastSenderClient {
   private state: CastSenderState;
   private readonly logs: string[] = [];
 
+  private readonly onReceiverMessage = (payload: CastCustomNamespaceMessage): void => {
+    if (payload.type !== 'timeCodeAvailability') {
+      return;
+    }
+
+    const normalizedType = payload.timeCodeType.trim();
+    const label = normalizedType.toLowerCase() === 'intro' ? 'Skip intro' : `Skip ${normalizedType.toLowerCase()}`;
+    this.emit({
+      ...this.state,
+      skipControl: {
+        visible: payload.visible,
+        label,
+        timeCodeType: payload.visible ? normalizedType : null,
+        startTime: payload.visible ? payload.startTime : null,
+        endTime: payload.visible ? payload.endTime : null,
+        duration: payload.visible ? payload.duration : null,
+      },
+    });
+  };
+
   constructor(
     private readonly transport: CastTransport,
     private readonly queueStrategy: CastQueueStrategy = new SequentialQueueStrategy(),
@@ -60,10 +83,19 @@ export class CastSenderClient {
         : 'No cast transport is available in this environment.',
       lastError: null,
       subtitlesEnabled: null,
+      skipControl: {
+        visible: false,
+        label: 'Skip intro',
+        timeCodeType: null,
+        startTime: null,
+        endTime: null,
+        duration: null,
+      },
       uiOverrides: mergeUiOverrides(defaultCastUiOverrides, uiOverrides),
     };
 
     this.transport.setUiOverrides?.(this.state.uiOverrides);
+    this.transport.setReceiverMessageListener?.(this.onReceiverMessage);
     this.log(`Initialized CastSenderClient with transport: ${transport.name}`);
   }
 
@@ -278,6 +310,60 @@ export class CastSenderClient {
       this.emit({
         ...this.state,
         statusMessage: `Could not start ${activeItem.title}.`,
+        lastError: message,
+      });
+    }
+  }
+
+  async sendSessionUpdate(payload: CastSessionUpdateMessage): Promise<void> {
+    try {
+      await this.transport.sendSessionUpdate?.(payload);
+      this.emit({
+        ...this.state,
+        statusMessage: 'Session update sent to receiver.',
+        lastError: null,
+      });
+    } catch (error) {
+      const message = formatCastError(error);
+      this.emit({
+        ...this.state,
+        statusMessage: 'Could not send session update.',
+        lastError: message,
+      });
+    }
+  }
+
+  async skipTimeCode(): Promise<void> {
+    const timeCodeType = this.state.skipControl.timeCodeType;
+    if (!timeCodeType) {
+      this.emit({
+        ...this.state,
+        statusMessage: 'No active skip marker is available yet.',
+      });
+      return;
+    }
+
+    const payload: CastSkipTimeCodeMessage = {
+      type: 'skipTimeCode',
+      timeCodeType,
+    };
+
+    try {
+      await this.transport.sendSkipTimeCode?.(payload);
+      this.emit({
+        ...this.state,
+        skipControl: {
+          ...this.state.skipControl,
+          visible: false,
+        },
+        statusMessage: `${this.state.skipControl.label} requested on receiver.`,
+        lastError: null,
+      });
+    } catch (error) {
+      const message = formatCastError(error);
+      this.emit({
+        ...this.state,
+        statusMessage: 'Could not send skip request.',
         lastError: message,
       });
     }

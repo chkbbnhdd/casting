@@ -2,6 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, OnDestroy, OnInit, signal } from '@angular/core';
 import { MediaFile } from '../../api/video-v1/model/mediaFile';
 import { Subtitles } from '../../api/video-v1/model/subtitles';
+import { TimeCodes } from '../../api/video-v1/model/timeCodes';
+import { CastSessionUpdateMessage, CastSkipTimeCodeMessage, CastTimeCodeAvailabilityMessage } from '../../sdk';
 
 declare global {
   interface Window {
@@ -19,6 +21,8 @@ const CONFIG_ENDPOINT_URL = 'https://prod95-cdn.dr-massive.com/api/config?device
 const PAGE_ENDPOINT_BASE_URL = 'https://prod95-cdn.dr-massive.com/api/page';
 const VIDEO_ENDPOINT_BASE_URL = 'https://prod95.dr-massive.com/api/account/items';
 const VIDEO_ENDPOINT_DEVICE = 'chromecast';
+const DR_TV_CUSTOM_NAMESPACE = 'urn:x-cast:dk.dr.tv.chromecast';
+const SKIP_TIME_CODE_TYPE = 'Intro';
 
 type ReceiverUiState = 'awaiting-cast' | 'connected-idle' | 'playing';
 
@@ -31,6 +35,7 @@ interface ResolvedPlayback {
   accessService?: string | null;
   subtitlesEnabled?: boolean;
   textTracks?: any[];
+  skipTimeCode?: TimeCodes | null;
 }
 
 interface QueueItemRuntimeData {
@@ -44,6 +49,13 @@ interface QueueItemPreview {
   thumbnail: string | null;
 }
 
+interface ReceiverSessionContext {
+  accessToken: string | null;
+  idToken: string | null;
+  segments: string[];
+  anonymousId: string | null;
+}
+
 interface ReceiverDebugState {
   path: string | null;
   pageUrl: string | null;
@@ -53,6 +65,11 @@ interface ReceiverDebugState {
   videoStatus: number | null;
   streamUrl: string | null;
   contentType: string | null;
+  sessionAccessToken: string | null;
+  sessionIdToken: string | null;
+  sessionSegments: string[];
+  sessionAnonymousId: string | null;
+  sessionUpdatedAt: string | null;
   playerState: string | null;
   lastEvent: string | null;
   lastError: string | null;
@@ -189,6 +206,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     videoStatus: null,
     streamUrl: null,
     contentType: null,
+    sessionAccessToken: null,
+    sessionIdToken: null,
+    sessionSegments: [],
+    sessionAnonymousId: null,
+    sessionUpdatedAt: null,
     playerState: null,
     lastEvent: null,
     lastError: null,
@@ -200,6 +222,217 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   private lastDebugOverlayEvent: string | null = null;
   private pendingSubtitleTrackIds: number[] = [];
   private pendingSubtitlesEnabled = false;
+  private activeSkipTimeCode: TimeCodes | null = null;
+  private lastSkipAvailabilityVisible: boolean | null = null;
+  private readonly connectedSenderIds = new Set<string>();
+  private sessionContext: ReceiverSessionContext = {
+    accessToken: null,
+    idToken: null,
+    segments: [],
+    anonymousId: null,
+  };
+
+  private parseSessionUpdateMessage(data: unknown): CastSessionUpdateMessage | null {
+    let candidate = data;
+
+    if (typeof candidate === 'string') {
+      try {
+        candidate = JSON.parse(candidate);
+      } catch {
+        return null;
+      }
+    }
+
+    if (!candidate || typeof candidate !== 'object') {
+      return null;
+    }
+
+    const message = candidate as Partial<CastSessionUpdateMessage>;
+    if (message.type !== 'sessionUpdate') {
+      return null;
+    }
+
+    if (typeof message.auth?.accessToken !== 'string' || typeof message.auth?.idToken !== 'string') {
+      return null;
+    }
+
+    if (!Array.isArray(message.segments) || !message.segments.every((segment) => typeof segment === 'string')) {
+      return null;
+    }
+
+    if (typeof message.tracking?.anonymousId !== 'string') {
+      return null;
+    }
+
+    return {
+      type: 'sessionUpdate',
+      auth: {
+        accessToken: message.auth.accessToken,
+        idToken: message.auth.idToken,
+      },
+      segments: [...message.segments],
+      tracking: {
+        anonymousId: message.tracking.anonymousId,
+      },
+    };
+  }
+
+  private parseSkipTimeCodeMessage(data: unknown): CastSkipTimeCodeMessage | null {
+    let candidate = data;
+
+    if (typeof candidate === 'string') {
+      try {
+        candidate = JSON.parse(candidate);
+      } catch {
+        return null;
+      }
+    }
+
+    if (!candidate || typeof candidate !== 'object') {
+      return null;
+    }
+
+    const message = candidate as Partial<CastSkipTimeCodeMessage>;
+    if (message.type !== 'skipTimeCode' || typeof message.timeCodeType !== 'string' || !message.timeCodeType.trim()) {
+      return null;
+    }
+
+    return {
+      type: 'skipTimeCode',
+      timeCodeType: message.timeCodeType.trim(),
+    };
+  }
+
+  private resolveTimeCodeDurationSeconds(timeCode: TimeCodes): number {
+    if (typeof timeCode.duration === 'number' && isFinite(timeCode.duration) && timeCode.duration > 0) {
+      return timeCode.duration;
+    }
+
+    const fallback = timeCode.endTime - timeCode.startTime;
+    return isFinite(fallback) && fallback > 0 ? fallback : 0;
+  }
+
+  private resolveTimeCodeEndSeconds(timeCode: TimeCodes): number {
+    if (typeof timeCode.endTime === 'number' && isFinite(timeCode.endTime) && timeCode.endTime > timeCode.startTime) {
+      return timeCode.endTime;
+    }
+
+    return timeCode.startTime + this.resolveTimeCodeDurationSeconds(timeCode);
+  }
+
+  private buildSkipAvailabilityMessage(visible: boolean): CastTimeCodeAvailabilityMessage {
+    const active = this.activeSkipTimeCode;
+    return {
+      type: 'timeCodeAvailability',
+      visible,
+      timeCodeType: active?.timeCodeType ?? SKIP_TIME_CODE_TYPE,
+      startTime: active?.startTime ?? 0,
+      endTime: active ? this.resolveTimeCodeEndSeconds(active) : 0,
+      duration: active ? this.resolveTimeCodeDurationSeconds(active) : 0,
+    };
+  }
+
+  private broadcastCustomMessageToSenders(payload: CastTimeCodeAvailabilityMessage): void {
+    if (this.connectedSenderIds.size === 0) {
+      return;
+    }
+
+    const context = window.cast?.framework?.CastReceiverContext?.getInstance?.();
+    if (!context?.sendCustomMessage) {
+      return;
+    }
+
+    for (const senderId of this.connectedSenderIds) {
+      try {
+        context.sendCustomMessage(DR_TV_CUSTOM_NAMESPACE, senderId, payload);
+      } catch {
+        // Ignore sender-specific channel failures and keep broadcasting to remaining senders.
+      }
+    }
+  }
+
+  private updateSkipAvailabilityForCurrentTime(currentTimeSec: number): void {
+    const active = this.activeSkipTimeCode;
+    if (!active) {
+      if (this.lastSkipAvailabilityVisible === false) {
+        return;
+      }
+
+      this.lastSkipAvailabilityVisible = false;
+      this.broadcastCustomMessageToSenders(this.buildSkipAvailabilityMessage(false));
+      this.recordReceiverEvent('timeCodeAvailability sent', `hidden (${SKIP_TIME_CODE_TYPE})`);
+      return;
+    }
+
+    const endTime = this.resolveTimeCodeEndSeconds(active);
+    const shouldShow = isFinite(currentTimeSec)
+      && currentTimeSec >= active.startTime
+      && currentTimeSec < endTime;
+
+    if (this.lastSkipAvailabilityVisible === shouldShow) {
+      return;
+    }
+
+    this.lastSkipAvailabilityVisible = shouldShow;
+    this.broadcastCustomMessageToSenders(this.buildSkipAvailabilityMessage(shouldShow));
+    this.recordReceiverEvent('timeCodeAvailability sent', `${shouldShow ? 'visible' : 'hidden'} (${active.timeCodeType})`);
+  }
+
+  private clearSkipTimeCodeState(): void {
+    this.activeSkipTimeCode = null;
+    this.lastSkipAvailabilityVisible = null;
+    this.broadcastCustomMessageToSenders(this.buildSkipAvailabilityMessage(false));
+  }
+
+  private handleSkipTimeCodeRequest(message: CastSkipTimeCodeMessage, playerManager: any): void {
+    const active = this.activeSkipTimeCode;
+    if (!active || active.timeCodeType.toLowerCase() !== message.timeCodeType.toLowerCase()) {
+      this.recordReceiverEvent('Skip ignored', `No active ${message.timeCodeType} timeCode`);
+      return;
+    }
+
+    const targetTimeSec = this.resolveTimeCodeEndSeconds(active);
+    const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
+    if (!mediaElement || !isFinite(targetTimeSec)) {
+      this.recordReceiverEvent('Skip failed', 'Media element unavailable');
+      return;
+    }
+
+    mediaElement.currentTime = Math.max(0, targetTimeSec);
+    this.currentTimeSec.set(Math.max(0, targetTimeSec));
+    this.recordReceiverEvent('Skip applied', `${message.timeCodeType} -> ${targetTimeSec.toFixed(1)}s`);
+    this.updateSkipAvailabilityForCurrentTime(targetTimeSec);
+  }
+
+  private applySessionUpdate(message: CastSessionUpdateMessage): void {
+    this.sessionContext = {
+      accessToken: message.auth.accessToken,
+      idToken: message.auth.idToken,
+      segments: [...message.segments],
+      anonymousId: message.tracking.anonymousId,
+    };
+
+    const maskToken = (token: string): string => {
+      if (token.length <= 12) {
+        return token;
+      }
+
+      return `${token.slice(0, 6)}...${token.slice(-4)}`;
+    };
+
+    this.updateDebugState({
+      sessionAccessToken: maskToken(message.auth.accessToken),
+      sessionIdToken: maskToken(message.auth.idToken),
+      sessionSegments: [...message.segments],
+      sessionAnonymousId: message.tracking.anonymousId,
+      sessionUpdatedAt: new Date().toISOString(),
+    });
+
+    this.recordReceiverEvent(
+      'Session updated',
+      `segments=${message.segments.length} anonymousId=${message.tracking.anonymousId}`,
+    );
+  }
 
   async ngOnInit(): Promise<void> {
     this.pushLog('Receiver booting');
@@ -390,7 +623,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     const mediaCustomData = loadRequestData?.media?.customData ?? {};
 
     const rawPath = queueCustomData.path ?? mediaCustomData.path ?? selectedItem?.url ?? null;
-    const accessToken = queueCustomData.accessToken ?? mediaCustomData.accessToken ?? null;
+    const accessToken = queueCustomData.accessToken
+      ?? mediaCustomData.accessToken
+      ?? this.sessionContext.accessToken
+      ?? null;
     const preferredAccessService = queueCustomData.preferredAccessService ?? mediaCustomData.preferredAccessService ?? null;
 
     return {
@@ -671,6 +907,17 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
+    const selectedTimeCodes = Array.isArray(primary?.timeCodes) ? primary.timeCodes : [];
+    const skipTimeCode = selectedTimeCodes.find((timeCode) => {
+      if (!timeCode || typeof timeCode.startTime !== 'number' || typeof timeCode.timeCodeType !== 'string') {
+        return false;
+      }
+
+      const endTime = this.resolveTimeCodeEndSeconds(timeCode);
+      return timeCode.timeCodeType.toLowerCase() === SKIP_TIME_CODE_TYPE.toLowerCase()
+        && isFinite(endTime)
+        && endTime > timeCode.startTime;
+    }) ?? null;
     const subtitlesEnabled = this.isSpokenAccessService(preferredAccessService);
     const subtitleSource = subtitlesEnabled
       ? this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService)
@@ -698,6 +945,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       accessService: selectedAccessService,
       subtitlesEnabled,
       textTracks,
+      skipTimeCode,
     };
   }
 
@@ -753,14 +1001,25 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
       const systemEventType = window.cast?.framework?.system?.EventType;
       if (systemEventType?.SENDER_CONNECTED) {
-        context.addEventListener(systemEventType.SENDER_CONNECTED, () => {
+        context.addEventListener(systemEventType.SENDER_CONNECTED, (event: any) => {
+          const senderId = event?.senderId;
+          if (typeof senderId === 'string' && senderId.trim()) {
+            this.connectedSenderIds.add(senderId);
+          }
+
           this.hasSenderConnected.set(true);
           this.updateUiState();
           this.recordReceiverEvent('Sender connected');
+          this.updateSkipAvailabilityForCurrentTime(this.currentTimeSec());
         });
       }
       if (systemEventType?.SENDER_DISCONNECTED) {
-        context.addEventListener(systemEventType.SENDER_DISCONNECTED, () => {
+        context.addEventListener(systemEventType.SENDER_DISCONNECTED, (event: any) => {
+          const senderId = event?.senderId;
+          if (typeof senderId === 'string' && senderId.trim()) {
+            this.connectedSenderIds.delete(senderId);
+          }
+
           this.hasSenderConnected.set(false);
           this.updateUiState();
           this.recordReceiverEvent('Sender disconnected');
@@ -788,6 +1047,22 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         });
       }
 
+      context.addCustomMessageListener(DR_TV_CUSTOM_NAMESPACE, (event: any) => {
+        const sessionUpdate = this.parseSessionUpdateMessage(event?.data);
+        if (sessionUpdate) {
+          this.applySessionUpdate(sessionUpdate);
+          return;
+        }
+
+        const skipMessage = this.parseSkipTimeCodeMessage(event?.data);
+        if (skipMessage) {
+          this.handleSkipTimeCodeRequest(skipMessage, playerManager);
+          return;
+        }
+
+        this.pushLog('Ignoring invalid custom channel payload');
+      });
+
       playerManager.setMessageInterceptor(MessageType.LOAD, async (loadRequestData: any) => {
         this.hasSenderConnected.set(true);
         this.updateUiState();
@@ -808,6 +1083,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         } catch { /* ignore */ }
         this.nextItemTitle.set(null);
         this.nextItemThumbnail.set(null);
+        this.clearSkipTimeCodeState();
         this.showNextUp.set(false);
 
         try {
@@ -831,6 +1107,9 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
               }
 
               this.applyResolvedPlaybackToLoadRequest(loadRequestData, resolvedPlayback);
+              this.activeSkipTimeCode = resolvedPlayback.skipTimeCode ?? null;
+              this.lastSkipAvailabilityVisible = null;
+              this.updateSkipAvailabilityForCurrentTime(loadRequestData?.currentTime ?? 0);
               this.pushLog('Set contentUrl from resolved playback: ' + resolvedPlayback.streamUrl);
 
               // Find and display next item
@@ -883,6 +1162,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
       const EventType = window.cast.framework.events.EventType;
       playerManager.addEventListener(EventType.ENDED, () => {
+        this.clearSkipTimeCodeState();
         this.recordReceiverEvent('Playback ended');
         this.onCurrentItemEnded(playerManager);
       });
@@ -924,6 +1204,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         const duration = playerManager.getDurationSec();
         this.currentTimeSec.set(current ?? 0);
         this.durationSec.set(duration ?? 0);
+        this.updateSkipAvailabilityForCurrentTime(current ?? 0);
         this.updateNextUpVisibility(current ?? 0, duration ?? 0);
       });
       playerManager.addEventListener(EventType.PLAYER_LOAD_COMPLETE, () => {
@@ -973,6 +1254,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       this.queueStatus.set('idle');
       this.nextItemTitle.set(null);
       this.nextItemThumbnail.set(null);
+      this.clearSkipTimeCodeState();
       this.updateUiState();
       this.pushLog('Queue finished');
       return;
@@ -980,6 +1262,9 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     const resolvedPlayback = await this.resolvePlaybackFromQueueItem(nextItem);
     this.receiverError.set(null);
+    this.activeSkipTimeCode = resolvedPlayback.skipTimeCode ?? null;
+    this.lastSkipAvailabilityVisible = null;
+    this.updateSkipAvailabilityForCurrentTime(0);
 
     this.storedActiveItemId = nextItem.id;
     this.title.set(resolvedPlayback.title || nextItem.title || 'Untitled');

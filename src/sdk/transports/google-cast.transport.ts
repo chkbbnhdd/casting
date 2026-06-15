@@ -1,6 +1,17 @@
-import { CastMediaItem, CastQueueState, CastTransport, CastUiOverrides, defaultCastUiOverrides } from '../common/types';
+import {
+  CastCustomNamespaceMessage,
+  CastMediaItem,
+  CastQueueState,
+  CastSessionUpdateMessage,
+  CastSkipTimeCodeMessage,
+  CastTransport,
+  CastUiOverrides,
+  defaultCastUiOverrides,
+} from '../common/types';
 import { cloneQueueState, createReceiverQueuePayload, createSerializableQueuePayload, mergeUiOverrides } from '../common/utils';
 import { initializeGoogleCastLauncher } from './google-cast-launcher.init';
+
+const DR_TV_CUSTOM_NAMESPACE = 'urn:x-cast:dk.dr.tv.chromecast';
 
 type GoogleCastMediaNamespace = {
   MediaInfo: new (contentId: string, contentType: string) => unknown;
@@ -18,6 +29,13 @@ type GoogleCastMediaNamespace = {
 type GoogleCastSession = {
   loadMedia?: (request: unknown) => Promise<void> | void;
   getMediaSession?: () => GoogleCastMediaSession | null;
+  sendMessage?: (
+    namespace: string,
+    message: unknown,
+    successCallback?: () => void,
+    errorCallback?: (error: unknown) => void,
+  ) => Promise<void> | void;
+  addMessageListener?: (namespace: string, listener: (namespace: string, message: unknown) => void) => void;
 };
 
 type GoogleCastMediaSession = {
@@ -208,6 +226,8 @@ export class GoogleCastTransport implements CastTransport {
   private uiOverrides: CastUiOverrides | null = null;
   private readonly scriptUrl: string;
   private lastQueue: CastQueueState | null = null;
+  private receiverMessageListener: ((payload: CastCustomNamespaceMessage) => void) | null = null;
+  private hasSessionMessageListener = false;
 
   constructor(scriptUrl: string = getScriptUrl()) {
     this.scriptUrl = scriptUrl;
@@ -244,6 +264,8 @@ export class GoogleCastTransport implements CastTransport {
       throw new Error('No active Cast session was created.');
     }
 
+    this.ensureCustomNamespaceListener(session);
+
     this.lastQueue = cloneQueueState(state);
   }
 
@@ -264,6 +286,8 @@ export class GoogleCastTransport implements CastTransport {
     if (!session?.loadMedia) {
       throw new Error('Connect to a Cast receiver before sending queue.');
     }
+
+    this.ensureCustomNamespaceListener(session);
 
     this.lastQueue = cloneQueueState(state);
 
@@ -299,12 +323,90 @@ export class GoogleCastTransport implements CastTransport {
       throw new Error('Connect to a Cast receiver before starting playback.');
     }
 
+    this.ensureCustomNamespaceListener(session);
+
     const request = createLoadRequest(item, state, chromeCastWindow);
     if (!request) {
       throw new Error('Could not create Google Cast media request.');
     }
 
     await session.loadMedia(request);
+  }
+
+  async sendSessionUpdate(payload: CastSessionUpdateMessage): Promise<void> {
+    const chromeCastWindow = getChromeCastWindow();
+    if (!chromeCastWindow) {
+      throw new Error('Google Cast sender SDK requires a browser window.');
+    }
+
+    await loadScriptOnce(this.scriptUrl);
+    const isInitialized = await initializeGoogleCastLauncher();
+    if (!isInitialized) {
+      throw new Error('Google Cast framework did not initialize.');
+    }
+
+    const castContext = getCastContext(chromeCastWindow);
+    const session = castContext?.getCurrentSession() ?? null;
+    if (!session?.sendMessage) {
+      throw new Error('Connect to a Cast receiver before sending session updates.');
+    }
+
+    this.ensureCustomNamespaceListener(session);
+
+    await new Promise<void>((resolve, reject) => {
+      try {
+        const maybePromise = session.sendMessage?.(
+          DR_TV_CUSTOM_NAMESPACE,
+          payload,
+          () => resolve(),
+          (error: unknown) => reject(error instanceof Error ? error : new Error(String(error)))
+        );
+
+        if (maybePromise && typeof (maybePromise as Promise<void>).then === 'function') {
+          (maybePromise as Promise<void>).then(resolve).catch(reject);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  async sendSkipTimeCode(payload: CastSkipTimeCodeMessage): Promise<void> {
+    const chromeCastWindow = getChromeCastWindow();
+    if (!chromeCastWindow) {
+      throw new Error('Google Cast sender SDK requires a browser window.');
+    }
+
+    await loadScriptOnce(this.scriptUrl);
+    const isInitialized = await initializeGoogleCastLauncher();
+    if (!isInitialized) {
+      throw new Error('Google Cast framework did not initialize.');
+    }
+
+    const castContext = getCastContext(chromeCastWindow);
+    const session = castContext?.getCurrentSession() ?? null;
+    if (!session?.sendMessage) {
+      throw new Error('Connect to a Cast receiver before sending skip commands.');
+    }
+
+    this.ensureCustomNamespaceListener(session);
+
+    await new Promise<void>((resolve, reject) => {
+      try {
+        const maybePromise = session.sendMessage?.(
+          DR_TV_CUSTOM_NAMESPACE,
+          payload,
+          () => resolve(),
+          (error: unknown) => reject(error instanceof Error ? error : new Error(String(error)))
+        );
+
+        if (maybePromise && typeof (maybePromise as Promise<void>).then === 'function') {
+          (maybePromise as Promise<void>).then(resolve).catch(reject);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 
   async pause(state: CastQueueState): Promise<void> {
@@ -441,6 +543,37 @@ export class GoogleCastTransport implements CastTransport {
       }
     }
     this.lastQueue = null;
+    this.hasSessionMessageListener = false;
+  }
+
+  setReceiverMessageListener(listener: ((payload: CastCustomNamespaceMessage) => void) | null): void {
+    this.receiverMessageListener = listener;
+  }
+
+  private ensureCustomNamespaceListener(session: GoogleCastSession): void {
+    if (this.hasSessionMessageListener || !session.addMessageListener) {
+      return;
+    }
+
+    session.addMessageListener(DR_TV_CUSTOM_NAMESPACE, (_namespace: string, message: unknown) => {
+      if (!message || typeof message !== 'object') {
+        return;
+      }
+
+      const payload = message as Partial<CastCustomNamespaceMessage>;
+      if (payload.type === 'timeCodeAvailability' && typeof payload.visible === 'boolean') {
+        this.receiverMessageListener?.({
+          type: 'timeCodeAvailability',
+          visible: payload.visible,
+          timeCodeType: typeof payload.timeCodeType === 'string' ? payload.timeCodeType : 'Intro',
+          startTime: typeof payload.startTime === 'number' ? payload.startTime : 0,
+          endTime: typeof payload.endTime === 'number' ? payload.endTime : 0,
+          duration: typeof payload.duration === 'number' ? payload.duration : 0,
+        });
+      }
+    });
+
+    this.hasSessionMessageListener = true;
   }
 
   setUiOverrides(overrides: Partial<CastUiOverrides>): void {

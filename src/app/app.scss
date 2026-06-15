@@ -172,6 +172,46 @@ h1 {
   line-height: 1.5;
 }
 
+.channel-test {
+  margin: 0 0 1.25rem;
+  padding: 1.4rem;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 100% -20%, rgba(109, 177, 255, 0.2), transparent 40%),
+    rgba(13, 17, 23, 0.8);
+}
+
+.channel-test::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, rgba(109, 177, 255, 0.08), transparent 35%);
+}
+
+.channel-test > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.channel-test .sample-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.channel-test .sample-actions {
+  grid-column: 1 / -1;
+  align-items: center;
+}
+
+.channel-status {
+  margin: 0.35rem 0 0;
+  color: rgba(247, 244, 238, 0.8);
+  font-size: 0.88rem;
+}
+
 .config-test-panel {
   margin-top: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -630,9 +670,18 @@ button {
   }
 
   .hero,
+  .channel-test,
   .composer,
   .queue {
     padding: 1rem;
+  }
+
+  .channel-test .sample-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .channel-test .sample-actions {
+    grid-column: auto;
   }
 
   .composer-grid,
