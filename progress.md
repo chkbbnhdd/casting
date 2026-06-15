@@ -14,6 +14,9 @@ Kald følgende kald i denne orden:
 2. Page:
 3. Item (Video):
 
+Benyt flow diagram fra Frederik
+
+
 Afspil video på receiver
 
 Mangler:

@@ -426,10 +426,10 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const currentTimeSec = playerManager?.getCurrentTimeSec?.() ?? this.currentTimeSec();
-    const deltaSeconds = Math.max(0, active.duration);
-    const targetFromDuration = isFinite(currentTimeSec) ? currentTimeSec + deltaSeconds : active.endTime;
-    const targetTimeSec = Math.max(active.endTime, targetFromDuration);
+    const fallbackEndTime = active.startTime + Math.max(0, active.duration);
+    const targetTimeSec = isFinite(active.endTime) && active.endTime > active.startTime
+      ? active.endTime
+      : fallbackEndTime;
     if (!isFinite(targetTimeSec) || targetTimeSec <= 0) {
       this.recordReceiverEvent('Skip failed', 'Target time is invalid');
       return;
