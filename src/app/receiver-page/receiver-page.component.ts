@@ -462,7 +462,33 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     return 0;
   }
 
-  private attemptSeekToTime(playerManager: any, targetSec: number, attempt = 0): void {
+  private forceLoadCurrentMediaAtTime(playerManager: any, targetSec: number): boolean {
+    try {
+      const messages = window.cast?.framework?.messages;
+      const LoadRequestDataCtor = messages?.LoadRequestData;
+      const mediaInfo = playerManager?.getMediaInformation?.();
+      if (typeof LoadRequestDataCtor !== 'function' || !mediaInfo || typeof playerManager?.load !== 'function') {
+        return false;
+      }
+
+      const loadRequest = new LoadRequestDataCtor();
+      loadRequest.media = mediaInfo;
+      loadRequest.currentTime = Math.max(0, targetSec);
+      loadRequest.autoplay = true;
+
+      const activeTrackIds = playerManager?.getTextTracksManager?.()?.getActiveIds?.();
+      if (Array.isArray(activeTrackIds) && activeTrackIds.length > 0) {
+        loadRequest.activeTrackIds = [...activeTrackIds];
+      }
+
+      playerManager.load(loadRequest);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private attemptSeekToTime(playerManager: any, targetSec: number, attempt = 0, allowForceReload = true): void {
     const clampedTargetSec = Math.max(0, targetSec);
     const mediaElement = this.resolveMediaElement(playerManager);
 
@@ -528,6 +554,16 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     if (attempt >= 8) {
+      if (allowForceReload) {
+        const reloaded = this.forceLoadCurrentMediaAtTime(playerManager, clampedTargetSec);
+        if (reloaded) {
+          this.recordReceiverEvent('Skip fallback', `Force reload at ${clampedTargetSec.toFixed(1)}s`);
+          this.updateDebugState({ skipStatus: `fallback reload -> ${clampedTargetSec.toFixed(1)}s` });
+          setTimeout(() => this.attemptSeekToTime(playerManager, clampedTargetSec, 0, false), 900);
+          return;
+        }
+      }
+
       this.recordReceiverEvent(
         'Skip failed',
         `Position stayed at ${currentPos.toFixed(1)}s after target ${clampedTargetSec.toFixed(1)}s`
@@ -536,7 +572,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    setTimeout(() => this.attemptSeekToTime(playerManager, clampedTargetSec, attempt + 1), 250);
+    setTimeout(() => this.attemptSeekToTime(playerManager, clampedTargetSec, attempt + 1, allowForceReload), 250);
   }
 
   private handleSkipTimeCodeRequest(message: CastSkipTimeCodeMessage, playerManager: any): void {
