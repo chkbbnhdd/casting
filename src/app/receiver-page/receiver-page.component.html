@@ -72,6 +72,26 @@
           <dt>Last error</dt>
           <dd>{{ debugState().lastError ?? '-' }}</dd>
         </div>
+        <div class="receiver-debug-span">
+          <dt>Skip timeCode</dt>
+          <dd>{{ debugState().skipTimeCode ?? '-' }}</dd>
+        </div>
+        <div class="receiver-debug-span">
+          <dt>Skip last msg</dt>
+          <dd>{{ debugState().skipLastMsg ?? '-' }}</dd>
+        </div>
+        <div class="receiver-debug-span">
+          <dt>Skip seekable</dt>
+          <dd>{{ debugState().skipSeekable ?? '-' }}</dd>
+        </div>
+        <div>
+          <dt>Skip APIs</dt>
+          <dd>{{ debugState().skipApis ?? '-' }}</dd>
+        </div>
+        <div class="receiver-debug-span">
+          <dt>Skip status</dt>
+          <dd>{{ debugState().skipStatus ?? '-' }}</dd>
+        </div>
       </dl>
     </aside>
   }

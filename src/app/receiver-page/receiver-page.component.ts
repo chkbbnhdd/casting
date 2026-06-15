@@ -15,7 +15,7 @@ declare global {
 const CAST_RECEIVER_SCRIPT_URL = 'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js';
 const NEXT_UP_PREVIEW_SECONDS = 30;
 const DEBUG_EVENT_THROTTLE_MS = 500;
-const SHOW_DEBUG_OVERLAY = false;
+const SHOW_DEBUG_OVERLAY = true;
 const CONFIG_ENDPOINT_URL = 'https://prod95-cdn.dr-massive.com/api/config?device=chromecast&ff=idp%2Cldp%2Crpt&include=classification%2Csubscription%2Csitemap%2Cnavigation%2Cgeneral%2Ci18n%2Cplayback%2Clinear%2CfeatureFlags&lang=da&segments=drtv&sub=Registered';
 const PAGE_ENDPOINT_BASE_URL = 'https://prod95-cdn.dr-massive.com/api/page';
 const VIDEO_ENDPOINT_BASE_URL = 'https://prod95.dr-massive.com/api/account/items';
@@ -79,6 +79,11 @@ interface ReceiverDebugState {
   playerState: string | null;
   lastEvent: string | null;
   lastError: string | null;
+  skipTimeCode: string | null;
+  skipLastMsg: string | null;
+  skipSeekable: string | null;
+  skipApis: string | null;
+  skipStatus: string | null;
 }
 
 function loadReceiverFramework(): Promise<void> {
@@ -218,6 +223,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     playerState: null,
     lastEvent: null,
     lastError: null,
+    skipTimeCode: null,
+    skipLastMsg: null,
+    skipSeekable: null,
+    skipApis: null,
+    skipStatus: null,
   });
 
   private storedQueueItems: any[] = [];
@@ -438,9 +448,24 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     const clampedTargetSec = Math.max(0, targetSec);
     const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
 
+    console.log(`[SKIP-DBG] attempt=${attempt} target=${clampedTargetSec} mediaElement=${!!mediaElement} seekFn=${typeof playerManager?.seek}`);
+    if (mediaElement) {
+      const seekable = mediaElement.seekable;
+      const ranges: string[] = [];
+      for (let i = 0; i < seekable.length; i++) { ranges.push(`${seekable.start(i).toFixed(1)}-${seekable.end(i).toFixed(1)}`); }
+      const seekableStr = `[${ranges.join(', ')}] pos=${mediaElement.currentTime.toFixed(1)}`;
+      console.log(`[SKIP-DBG] seekable ranges: ${seekableStr}`);
+      this.updateDebugState({ skipSeekable: seekableStr });
+    } else {
+      this.updateDebugState({ skipSeekable: 'no mediaElement' });
+    }
+
     try {
       const SeekRequestDataCtor = window.cast?.framework?.messages?.SeekRequestData;
       const ResumeState = window.cast?.framework?.messages?.ResumeState;
+      const apisStr = `seekFn=${typeof playerManager?.seek} SeekData=${typeof SeekRequestDataCtor}`;
+      console.log(`[SKIP-DBG] SeekRequestData=${typeof SeekRequestDataCtor} ResumeState=`, ResumeState);
+      this.updateDebugState({ skipApis: apisStr });
       if (typeof playerManager?.seek === 'function' && typeof SeekRequestDataCtor === 'function') {
         const seekRequestData = new SeekRequestDataCtor();
         seekRequestData.currentTime = clampedTargetSec;
@@ -448,29 +473,43 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
           seekRequestData.resumeState = ResumeState.PLAYBACK_START;
         }
         playerManager.seek(seekRequestData);
+        console.log('[SKIP-DBG] playerManager.seek() called');
+        this.updateDebugState({ skipStatus: `CAF seek called -> ${clampedTargetSec.toFixed(1)}s` });
+      } else {
+        console.log('[SKIP-DBG] playerManager.seek not available, skipping CAF seek');
+        this.updateDebugState({ skipStatus: 'CAF seek unavailable' });
       }
-    } catch {
-      // Keep fallback path below.
+    } catch (err) {
+      console.warn('[SKIP-DBG] CAF seek threw:', err);
+      this.updateDebugState({ skipStatus: `CAF seek threw: ${String(err)}` });
     }
 
     if (mediaElement) {
       try {
         mediaElement.currentTime = clampedTargetSec;
+        const nowAfter = mediaElement.currentTime.toFixed(1);
+        console.log(`[SKIP-DBG] mediaElement.currentTime set to ${clampedTargetSec}, now=${nowAfter}`);
+        this.updateDebugState({ skipStatus: `elem.currentTime=${clampedTargetSec.toFixed(1)} -> now=${nowAfter}` });
         const playResult = mediaElement.play?.();
         if (playResult && typeof (playResult as Promise<void>).catch === 'function') {
           void (playResult as Promise<void>).catch(() => undefined);
         }
-      } catch {
-        // Retry loop below covers temporary seek/play failures.
+      } catch (err) {
+        console.warn('[SKIP-DBG] mediaElement seek/play threw:', err);
+        this.updateDebugState({ skipStatus: `elem seek threw: ${String(err)}` });
       }
+    } else {
+      console.warn('[SKIP-DBG] no mediaElement available');
     }
 
     const currentPos = this.getPlaybackPositionSec(playerManager);
     const isApplied = Math.abs(currentPos - clampedTargetSec) <= 0.75;
+    this.updateDebugState({ skipStatus: `attempt ${attempt}: pos=${currentPos.toFixed(1)} target=${clampedTargetSec.toFixed(1)} applied=${isApplied}` });
     if (isApplied) {
       this.currentTimeSec.set(clampedTargetSec);
       this.updateSkipAvailabilityForCurrentTime(clampedTargetSec);
       this.recordReceiverEvent('Skip applied', `${clampedTargetSec.toFixed(1)}s`);
+      this.updateDebugState({ skipStatus: `DONE -> ${clampedTargetSec.toFixed(1)}s` });
       return;
     }
 
@@ -479,6 +518,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         'Skip failed',
         `Position stayed at ${currentPos.toFixed(1)}s after target ${clampedTargetSec.toFixed(1)}s`
       );
+      this.updateDebugState({ skipStatus: `FAILED: stuck at ${currentPos.toFixed(1)}s` });
       return;
     }
 
@@ -487,8 +527,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
   private handleSkipTimeCodeRequest(message: CastSkipTimeCodeMessage, playerManager: any): void {
     const active = this.activeSkipTimeCode;
+    console.log('[SKIP-DBG] handleSkipTimeCodeRequest active=', JSON.stringify(active), 'msg=', JSON.stringify(message));
+    this.updateDebugState({ skipStatus: `active=${JSON.stringify(active)?.slice(0, 80)}` });
     if (!active || active.timeCodeType.toLowerCase() !== message.timeCodeType.toLowerCase()) {
       this.recordReceiverEvent('Skip ignored', `No active ${message.timeCodeType} timeCode`);
+      this.updateDebugState({ skipStatus: `ignored: no active ${message.timeCodeType}` });
       return;
     }
 
@@ -496,8 +539,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     const targetTimeSec = isFinite(active.endTime) && active.endTime > active.startTime
       ? active.endTime
       : fallbackEndTime;
+    console.log('[SKIP-DBG] targetTimeSec=', targetTimeSec);
+    this.updateDebugState({ skipStatus: `target=${targetTimeSec.toFixed(1)}s` });
     if (!isFinite(targetTimeSec) || targetTimeSec <= 0) {
       this.recordReceiverEvent('Skip failed', 'Target time is invalid');
+      this.updateDebugState({ skipStatus: 'FAIL: invalid target' });
       return;
     }
 
@@ -1125,6 +1171,9 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
           this.connectedSenderIds.add(senderId);
         }
 
+        console.log('[SKIP-DBG] custom message received', JSON.stringify(event?.data));
+        this.updateDebugState({ skipLastMsg: JSON.stringify(event?.data)?.slice(0, 120) });
+
         const sessionUpdate = this.parseSessionUpdateMessage(event?.data);
         if (sessionUpdate) {
           this.applySessionUpdate(sessionUpdate);
@@ -1132,6 +1181,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         }
 
         const skipMessage = this.parseSkipTimeCodeMessage(event?.data);
+        console.log('[SKIP-DBG] parseSkipTimeCodeMessage result', JSON.stringify(skipMessage));
+        this.updateDebugState({ skipLastMsg: `parsed: ${JSON.stringify(skipMessage)}` });
         if (skipMessage) {
           this.handleSkipTimeCodeRequest(skipMessage, playerManager);
           return;
@@ -1187,6 +1238,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
               this.activeSkipTimeCode = resolvedPlayback.skipTimeCode ?? null;
               this.lastSkipAvailabilityVisible = null;
               this.updateSkipAvailabilityForCurrentTime(loadRequestData?.currentTime ?? 0);
+              this.updateDebugState({ skipTimeCode: this.activeSkipTimeCode ? `${this.activeSkipTimeCode.timeCodeType} ${this.activeSkipTimeCode.startTime}-${this.activeSkipTimeCode.endTime}s` : 'none' });
               this.pushLog('Set contentUrl from resolved playback: ' + resolvedPlayback.streamUrl);
 
               // Find and display next item
