@@ -84,7 +84,10 @@ interface ReceiverDebugState {
   skipSeekable: string | null;
   skipApis: string | null;
   skipStatus: string | null;
+  skipTarget: string | null;
 }
+
+type SkipUiState = 'idle' | 'seeking' | 'completed';
 
 function loadReceiverFramework(): Promise<void> {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -199,6 +202,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly hasSenderConnected = signal(false);
   protected readonly queueStatus = signal<string>('idle');
   protected readonly isPlaying = signal(false);
+  protected readonly skipUiState = signal<SkipUiState>('idle');
   protected readonly currentTimeSec = signal(0);
   protected readonly durationSec = signal(0);
   protected readonly nextItemTitle = signal<string | null>(null);
@@ -228,6 +232,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     skipSeekable: null,
     skipApis: null,
     skipStatus: null,
+    skipTarget: null,
   });
 
   private storedQueueItems: any[] = [];
@@ -237,6 +242,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   private pendingSubtitleTrackIds: number[] = [];
   private pendingSubtitlesEnabled = false;
   private activeSkipTimeCode: NormalizedTimeCode | null = null;
+  private activeSkipTargetSec: number | null = null;
   private lastSkipAvailabilityVisible: boolean | null = null;
   private readonly connectedSenderIds = new Set<string>();
   private sessionContext: ReceiverSessionContext = {
@@ -425,8 +431,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
   private clearSkipTimeCodeState(): void {
     this.activeSkipTimeCode = null;
+    this.activeSkipTargetSec = null;
+    this.skipUiState.set('idle');
     this.lastSkipAvailabilityVisible = null;
     this.broadcastCustomMessageToSenders(this.buildSkipAvailabilityMessage(false));
+    this.updateDebugState({ skipStatus: 'idle', skipTarget: null });
   }
 
   private resolveMediaElement(playerManager: any): HTMLVideoElement | null {
@@ -547,6 +556,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     this.updateDebugState({ skipStatus: `attempt ${attempt}: pos=${currentPos.toFixed(1)} target=${clampedTargetSec.toFixed(1)} applied=${isApplied}` });
     if (isApplied) {
       this.currentTimeSec.set(clampedTargetSec);
+      this.activeSkipTargetSec = clampedTargetSec;
       this.updateSkipAvailabilityForCurrentTime(clampedTargetSec);
       this.recordReceiverEvent('Skip applied', `${clampedTargetSec.toFixed(1)}s`);
       this.updateDebugState({ skipStatus: `DONE -> ${clampedTargetSec.toFixed(1)}s` });
@@ -568,7 +578,9 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         'Skip failed',
         `Position stayed at ${currentPos.toFixed(1)}s after target ${clampedTargetSec.toFixed(1)}s`
       );
-      this.updateDebugState({ skipStatus: `FAILED: stuck at ${currentPos.toFixed(1)}s` });
+      this.updateDebugState({ skipStatus: `FAILED: stuck at ${currentPos.toFixed(1)}s`, skipTarget: null });
+      this.skipUiState.set('idle');
+      this.activeSkipTargetSec = null;
       return;
     }
 
@@ -597,6 +609,9 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.activeSkipTargetSec = targetTimeSec;
+    this.skipUiState.set('seeking');
+    this.updateDebugState({ skipTarget: `${targetTimeSec.toFixed(1)}s` });
     this.recordReceiverEvent('Skip requested', `${message.timeCodeType} -> ${targetTimeSec.toFixed(1)}s`);
     this.attemptSeekToTime(playerManager, targetTimeSec, 0);
   }
@@ -1360,6 +1375,21 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         if (playerState === 'PLAYING') {
           this.receiverError.set(null);
           this.updateDebugState({ lastError: null });
+          if (this.skipUiState() !== 'idle') {
+            const currentPos = playerManager.getCurrentTimeSec?.() ?? this.currentTimeSec();
+            const targetPos = this.activeSkipTargetSec ?? currentPos;
+            if (currentPos >= targetPos - 0.5) {
+              this.skipUiState.set('completed');
+              this.updateDebugState({ skipStatus: `completed @ ${currentPos.toFixed(1)}s` });
+              setTimeout(() => {
+                if (this.skipUiState() === 'completed') {
+                  this.skipUiState.set('idle');
+                  this.activeSkipTargetSec = null;
+                  this.updateDebugState({ skipTarget: null });
+                }
+              }, 600);
+            }
+          }
         }
         this.isPlaying.set(playerState === 'PLAYING' || playerState === 'BUFFERING' || playerState === 'LOADING');
         this.updateUiState();

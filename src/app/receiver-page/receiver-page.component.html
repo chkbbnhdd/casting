@@ -4,6 +4,18 @@
     <video class="castMediaElement" autoplay playsinline></video>
   </cast-media-player>
 
+  @if (skipUiState() !== 'idle') {
+    <section class="skip-screen" aria-live="polite" aria-label="Skipping intro">
+      <div class="skip-screen-card">
+        <p class="skip-screen-label">Skipping intro</p>
+        <h2>Jumping to {{ debugState().skipTarget ?? 'the next scene' }}</h2>
+        <p class="skip-screen-copy">
+          {{ skipUiState() === 'seeking' ? 'Hold on while the video jumps forward.' : 'Resuming playback.' }}
+        </p>
+      </div>
+    </section>
+  }
+
   @if (showDebugOverlay) {
     <aside class="receiver-debug" aria-label="Receiver debug overlay">
       <p class="receiver-debug-title">Receiver debug</p>
@@ -92,6 +104,14 @@
           <dt>Skip status</dt>
           <dd>{{ debugState().skipStatus ?? '-' }}</dd>
         </div>
+        <div>
+          <dt>Skip UI state</dt>
+          <dd>{{ skipUiState() }}</dd>
+        </div>
+        <div class="receiver-debug-span">
+          <dt>Skip target</dt>
+          <dd>{{ debugState().skipTarget ?? '-' }}</dd>
+        </div>
       </dl>
     </aside>
   }
@@ -103,7 +123,7 @@
         <p class="receiver-error-message">{{ receiverError() }}</p>
       </div>
     </div>
-  } @else {
+  } @else if (skipUiState() === 'idle') {
     <div class="logo">
       @if (!isPlaying()) {
         <!-- <img src="/dr_logo.svg" alt="DR logo" /> -->
@@ -134,6 +154,16 @@
           </div>
         </aside>
       }
+    </section>
+  } @else {
+    <section class="skip-screen" aria-live="polite" aria-label="Skipping intro">
+      <div class="skip-screen-card">
+        <p class="skip-screen-label">Skipping intro</p>
+        <h2>Jumping to {{ debugState().skipTarget ?? 'the next scene' }}</h2>
+        <p class="skip-screen-copy">
+          {{ skipUiState() === 'seeking' ? 'Hold on while the video jumps forward.' : 'Resuming playback.' }}
+        </p>
+      </div>
     </section>
   }
 

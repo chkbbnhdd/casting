@@ -38,6 +38,52 @@
   object-fit: cover;
 }
 
+.skip-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at top, rgba(255, 138, 61, 0.26), transparent 42%),
+    linear-gradient(180deg, rgba(7, 10, 14, 0.78), rgba(7, 10, 14, 0.94));
+  backdrop-filter: blur(10px);
+}
+
+.skip-screen-card {
+  width: min(560px, 100%);
+  padding: 2rem 2.25rem;
+  border-radius: 28px;
+  background: rgba(8, 12, 18, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.skip-screen-label {
+  margin: 0 0 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.skip-screen-card h2 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.02;
+  color: #fff;
+}
+
+.skip-screen-copy {
+  margin: 0.9rem 0 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .receiver-debug {
   position: fixed;
   top: 1rem;
