@@ -429,14 +429,32 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     this.broadcastCustomMessageToSenders(this.buildSkipAvailabilityMessage(false));
   }
 
+  private resolveMediaElement(playerManager: any): HTMLVideoElement | null {
+    // playerManager.getMediaElement() returns null with cast-media-player.
+    // Try direct query first, then shadow DOM of the cast-media-player element.
+    const direct = playerManager?.getMediaElement?.() as HTMLVideoElement | null;
+    if (direct) {
+      return direct;
+    }
+
+    const byClass = document.querySelector<HTMLVideoElement>('.castMediaElement');
+    if (byClass) {
+      return byClass;
+    }
+
+    const castPlayer = document.querySelector('cast-media-player');
+    const shadow = castPlayer?.shadowRoot?.querySelector<HTMLVideoElement>('video');
+    return shadow ?? null;
+  }
+
   private getPlaybackPositionSec(playerManager: any): number {
-    const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
     const managerPos = playerManager?.getCurrentTimeSec?.();
 
     if (typeof managerPos === 'number' && isFinite(managerPos)) {
       return managerPos;
     }
 
+    const mediaElement = this.resolveMediaElement(playerManager);
     if (mediaElement && isFinite(mediaElement.currentTime)) {
       return mediaElement.currentTime;
     }
@@ -446,7 +464,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
   private attemptSeekToTime(playerManager: any, targetSec: number, attempt = 0): void {
     const clampedTargetSec = Math.max(0, targetSec);
-    const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
+    const mediaElement = this.resolveMediaElement(playerManager);
 
     console.log(`[SKIP-DBG] attempt=${attempt} target=${clampedTargetSec} mediaElement=${!!mediaElement} seekFn=${typeof playerManager?.seek}`);
     if (mediaElement) {
