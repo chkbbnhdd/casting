@@ -481,10 +481,14 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     try {
       const SeekRequestDataCtor = window.cast?.framework?.messages?.SeekRequestData;
       const ResumeState = window.cast?.framework?.messages?.ResumeState;
-      const apisStr = `seekFn=${typeof playerManager?.seek} SeekData=${typeof SeekRequestDataCtor}`;
-      console.log(`[SKIP-DBG] SeekRequestData=${typeof SeekRequestDataCtor} ResumeState=`, ResumeState);
+      const cafAvailable = typeof playerManager?.seek === 'function' && typeof SeekRequestDataCtor === 'function';
+      const apisStr = `cafSeek=${cafAvailable} SeekData=${typeof SeekRequestDataCtor}`;
+      console.log(`[SKIP-DBG] cafAvailable=${cafAvailable}`);
       this.updateDebugState({ skipApis: apisStr });
-      if (typeof playerManager?.seek === 'function' && typeof SeekRequestDataCtor === 'function') {
+
+      if (cafAvailable) {
+        // Use CAF-native seek exclusively — do NOT also set mediaElement.currentTime.
+        // Doing both causes CAF to undo the direct manipulation while its own async seek is in flight.
         const seekRequestData = new SeekRequestDataCtor();
         seekRequestData.currentTime = clampedTargetSec;
         if (ResumeState?.PLAYBACK_START) {
@@ -493,31 +497,23 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         playerManager.seek(seekRequestData);
         console.log('[SKIP-DBG] playerManager.seek() called');
         this.updateDebugState({ skipStatus: `CAF seek called -> ${clampedTargetSec.toFixed(1)}s` });
-      } else {
-        console.log('[SKIP-DBG] playerManager.seek not available, skipping CAF seek');
-        this.updateDebugState({ skipStatus: 'CAF seek unavailable' });
-      }
-    } catch (err) {
-      console.warn('[SKIP-DBG] CAF seek threw:', err);
-      this.updateDebugState({ skipStatus: `CAF seek threw: ${String(err)}` });
-    }
-
-    if (mediaElement) {
-      try {
+      } else if (mediaElement) {
+        // Only fall back to direct element seek when CAF seek is not available.
         mediaElement.currentTime = clampedTargetSec;
         const nowAfter = mediaElement.currentTime.toFixed(1);
-        console.log(`[SKIP-DBG] mediaElement.currentTime set to ${clampedTargetSec}, now=${nowAfter}`);
-        this.updateDebugState({ skipStatus: `elem.currentTime=${clampedTargetSec.toFixed(1)} -> now=${nowAfter}` });
+        console.log(`[SKIP-DBG] elem seek ${clampedTargetSec} now=${nowAfter}`);
+        this.updateDebugState({ skipStatus: `elem seek -> ${clampedTargetSec.toFixed(1)} now=${nowAfter}` });
         const playResult = mediaElement.play?.();
         if (playResult && typeof (playResult as Promise<void>).catch === 'function') {
           void (playResult as Promise<void>).catch(() => undefined);
         }
-      } catch (err) {
-        console.warn('[SKIP-DBG] mediaElement seek/play threw:', err);
-        this.updateDebugState({ skipStatus: `elem seek threw: ${String(err)}` });
+      } else {
+        console.warn('[SKIP-DBG] no seek API available');
+        this.updateDebugState({ skipStatus: 'no seek API available' });
       }
-    } else {
-      console.warn('[SKIP-DBG] no mediaElement available');
+    } catch (err) {
+      console.warn('[SKIP-DBG] seek threw:', err);
+      this.updateDebugState({ skipStatus: `seek threw: ${String(err)}` });
     }
 
     const currentPos = this.getPlaybackPositionSec(playerManager);
