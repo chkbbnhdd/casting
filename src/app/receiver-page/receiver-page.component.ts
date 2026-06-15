@@ -34,7 +34,7 @@ interface ResolvedPlayback {
   accessService?: string | null;
   subtitlesEnabled?: boolean;
   textTracks?: any[];
-  skipTimeCode?: TimeCodes | null;
+  skipTimeCode?: NormalizedTimeCode | null;
 }
 
 interface QueueItemRuntimeData {
@@ -46,6 +46,13 @@ interface QueueItemRuntimeData {
 interface QueueItemPreview {
   title: string | null;
   thumbnail: string | null;
+}
+
+interface NormalizedTimeCode {
+  startTime: number;
+  endTime: number;
+  duration: number;
+  timeCodeType: string;
 }
 
 interface ReceiverSessionContext {
@@ -219,7 +226,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   private lastDebugOverlayEvent: string | null = null;
   private pendingSubtitleTrackIds: number[] = [];
   private pendingSubtitlesEnabled = false;
-  private activeSkipTimeCode: TimeCodes | null = null;
+  private activeSkipTimeCode: NormalizedTimeCode | null = null;
   private lastSkipAvailabilityVisible: boolean | null = null;
   private readonly connectedSenderIds = new Set<string>();
   private sessionContext: ReceiverSessionContext = {
@@ -300,21 +307,31 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     };
   }
 
-  private resolveTimeCodeDurationSeconds(timeCode: TimeCodes): number {
-    if (typeof timeCode.duration === 'number' && isFinite(timeCode.duration) && timeCode.duration > 0) {
-      return timeCode.duration;
+  private toNormalizedTimeCode(timeCode: TimeCodes): NormalizedTimeCode | null {
+    if (!timeCode || typeof timeCode.timeCodeType !== 'string' || typeof timeCode.startTime !== 'number') {
+      return null;
     }
 
-    const fallback = timeCode.endTime - timeCode.startTime;
-    return isFinite(fallback) && fallback > 0 ? fallback : 0;
-  }
+    const rawStart = timeCode.startTime;
+    const rawEnd = typeof timeCode.endTime === 'number' ? timeCode.endTime : rawStart;
+    const rawDuration = typeof timeCode.duration === 'number' ? timeCode.duration : rawEnd - rawStart;
+    const looksLikeMilliseconds = rawDuration > 1000 || rawEnd - rawStart > 1000;
+    const unit = looksLikeMilliseconds ? 1000 : 1;
 
-  private resolveTimeCodeEndSeconds(timeCode: TimeCodes): number {
-    if (typeof timeCode.endTime === 'number' && isFinite(timeCode.endTime) && timeCode.endTime > timeCode.startTime) {
-      return timeCode.endTime;
+    const startTime = rawStart / unit;
+    const duration = Math.max(0, rawDuration / unit);
+    const endTime = rawEnd > rawStart ? rawEnd / unit : startTime + duration;
+
+    if (!isFinite(startTime) || !isFinite(endTime) || endTime <= startTime) {
+      return null;
     }
 
-    return timeCode.startTime + this.resolveTimeCodeDurationSeconds(timeCode);
+    return {
+      startTime,
+      endTime,
+      duration: duration > 0 ? duration : endTime - startTime,
+      timeCodeType: timeCode.timeCodeType,
+    };
   }
 
   private buildSkipAvailabilityMessage(visible: boolean): CastTimeCodeAvailabilityMessage {
@@ -324,18 +341,39 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       visible,
       timeCodeType: active?.timeCodeType ?? SKIP_TIME_CODE_TYPE,
       startTime: active?.startTime ?? 0,
-      endTime: active ? this.resolveTimeCodeEndSeconds(active) : 0,
-      duration: active ? this.resolveTimeCodeDurationSeconds(active) : 0,
+      endTime: active?.endTime ?? 0,
+      duration: active?.duration ?? 0,
     };
   }
 
-  private broadcastCustomMessageToSenders(payload: CastTimeCodeAvailabilityMessage): void {
-    if (this.connectedSenderIds.size === 0) {
+  private refreshConnectedSenderIds(context: any): void {
+    const senders = context?.getSenders?.();
+    if (!Array.isArray(senders)) {
       return;
     }
 
+    for (const senderId of senders) {
+      if (typeof senderId === 'string' && senderId.trim()) {
+        this.connectedSenderIds.add(senderId);
+      }
+    }
+  }
+
+  private broadcastCustomMessageToSenders(payload: CastTimeCodeAvailabilityMessage): void {
     const context = window.cast?.framework?.CastReceiverContext?.getInstance?.();
     if (!context?.sendCustomMessage) {
+      return;
+    }
+
+    this.refreshConnectedSenderIds(context);
+
+    if (this.connectedSenderIds.size === 0) {
+      try {
+        // Fallback broadcast when sender IDs are not exposed by this runtime.
+        context.sendCustomMessage(DR_TV_CUSTOM_NAMESPACE, undefined, payload);
+      } catch {
+        // Ignore sender-specific channel failures.
+      }
       return;
     }
 
@@ -361,7 +399,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const endTime = this.resolveTimeCodeEndSeconds(active);
+    const endTime = active.endTime;
     const shouldShow = isFinite(currentTimeSec)
       && currentTimeSec >= active.startTime
       && currentTimeSec < endTime;
@@ -388,7 +426,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const targetTimeSec = this.resolveTimeCodeEndSeconds(active);
+    const targetTimeSec = active.endTime;
     const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
     if (!mediaElement || !isFinite(targetTimeSec)) {
       this.recordReceiverEvent('Skip failed', 'Media element unavailable');
@@ -884,17 +922,13 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
-    const selectedTimeCodes = Array.isArray(primary?.timeCodes) ? primary.timeCodes : [];
-    const skipTimeCode = selectedTimeCodes.find((timeCode) => {
-      if (!timeCode || typeof timeCode.startTime !== 'number' || typeof timeCode.timeCodeType !== 'string') {
-        return false;
-      }
-
-      const endTime = this.resolveTimeCodeEndSeconds(timeCode);
-      return timeCode.timeCodeType.toLowerCase() === SKIP_TIME_CODE_TYPE.toLowerCase()
-        && isFinite(endTime)
-        && endTime > timeCode.startTime;
-    }) ?? null;
+    const allTimeCodes = Array.isArray(mediaFiles)
+      ? mediaFiles.flatMap((file) => (Array.isArray(file?.timeCodes) ? file.timeCodes : []))
+      : [];
+    const skipTimeCode = allTimeCodes
+      .map((timeCode) => this.toNormalizedTimeCode(timeCode))
+      .find((timeCode) => timeCode?.timeCodeType.toLowerCase() === SKIP_TIME_CODE_TYPE.toLowerCase())
+      ?? null;
     const subtitlesEnabled = this.isSpokenAccessService(preferredAccessService);
     const subtitleSource = subtitlesEnabled
       ? this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService)
@@ -983,6 +1017,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
           if (typeof senderId === 'string' && senderId.trim()) {
             this.connectedSenderIds.add(senderId);
           }
+          this.refreshConnectedSenderIds(context);
 
           this.hasSenderConnected.set(true);
           this.updateUiState();
@@ -1019,6 +1054,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       }
 
       context.addCustomMessageListener(DR_TV_CUSTOM_NAMESPACE, (event: any) => {
+        const senderId = event?.senderId;
+        if (typeof senderId === 'string' && senderId.trim()) {
+          this.connectedSenderIds.add(senderId);
+        }
+
         const sessionUpdate = this.parseSessionUpdateMessage(event?.data);
         if (sessionUpdate) {
           this.applySessionUpdate(sessionUpdate);

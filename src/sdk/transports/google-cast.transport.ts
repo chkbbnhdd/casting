@@ -556,11 +556,20 @@ export class GoogleCastTransport implements CastTransport {
     }
 
     session.addMessageListener(DR_TV_CUSTOM_NAMESPACE, (_namespace: string, message: unknown) => {
-      if (!message || typeof message !== 'object') {
+      let parsedMessage = message;
+      if (typeof parsedMessage === 'string') {
+        try {
+          parsedMessage = JSON.parse(parsedMessage);
+        } catch {
+          return;
+        }
+      }
+
+      if (!parsedMessage || typeof parsedMessage !== 'object') {
         return;
       }
 
-      const payload = message as Partial<CastCustomNamespaceMessage>;
+      const payload = parsedMessage as Partial<CastCustomNamespaceMessage>;
       if (payload.type === 'timeCodeAvailability' && typeof payload.visible === 'boolean') {
         this.receiverMessageListener?.({
           type: 'timeCodeAvailability',
