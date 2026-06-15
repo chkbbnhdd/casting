@@ -419,6 +419,72 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     this.broadcastCustomMessageToSenders(this.buildSkipAvailabilityMessage(false));
   }
 
+  private getPlaybackPositionSec(playerManager: any): number {
+    const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
+    const managerPos = playerManager?.getCurrentTimeSec?.();
+
+    if (typeof managerPos === 'number' && isFinite(managerPos)) {
+      return managerPos;
+    }
+
+    if (mediaElement && isFinite(mediaElement.currentTime)) {
+      return mediaElement.currentTime;
+    }
+
+    return 0;
+  }
+
+  private attemptSeekToTime(playerManager: any, targetSec: number, attempt = 0): void {
+    const clampedTargetSec = Math.max(0, targetSec);
+    const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
+
+    try {
+      const SeekRequestDataCtor = window.cast?.framework?.messages?.SeekRequestData;
+      const ResumeState = window.cast?.framework?.messages?.ResumeState;
+      if (typeof playerManager?.seek === 'function' && typeof SeekRequestDataCtor === 'function') {
+        const seekRequestData = new SeekRequestDataCtor();
+        seekRequestData.currentTime = clampedTargetSec;
+        if (ResumeState?.PLAYBACK_START) {
+          seekRequestData.resumeState = ResumeState.PLAYBACK_START;
+        }
+        playerManager.seek(seekRequestData);
+      }
+    } catch {
+      // Keep fallback path below.
+    }
+
+    if (mediaElement) {
+      try {
+        mediaElement.currentTime = clampedTargetSec;
+        const playResult = mediaElement.play?.();
+        if (playResult && typeof (playResult as Promise<void>).catch === 'function') {
+          void (playResult as Promise<void>).catch(() => undefined);
+        }
+      } catch {
+        // Retry loop below covers temporary seek/play failures.
+      }
+    }
+
+    const currentPos = this.getPlaybackPositionSec(playerManager);
+    const isApplied = Math.abs(currentPos - clampedTargetSec) <= 0.75;
+    if (isApplied) {
+      this.currentTimeSec.set(clampedTargetSec);
+      this.updateSkipAvailabilityForCurrentTime(clampedTargetSec);
+      this.recordReceiverEvent('Skip applied', `${clampedTargetSec.toFixed(1)}s`);
+      return;
+    }
+
+    if (attempt >= 8) {
+      this.recordReceiverEvent(
+        'Skip failed',
+        `Position stayed at ${currentPos.toFixed(1)}s after target ${clampedTargetSec.toFixed(1)}s`
+      );
+      return;
+    }
+
+    setTimeout(() => this.attemptSeekToTime(playerManager, clampedTargetSec, attempt + 1), 250);
+  }
+
   private handleSkipTimeCodeRequest(message: CastSkipTimeCodeMessage, playerManager: any): void {
     const active = this.activeSkipTimeCode;
     if (!active || active.timeCodeType.toLowerCase() !== message.timeCodeType.toLowerCase()) {
@@ -435,58 +501,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const clampedTargetSec = Math.max(0, targetTimeSec);
-    let seekApplied = false;
-
-    try {
-      const SeekRequestDataCtor = window.cast?.framework?.messages?.SeekRequestData;
-      const ResumeState = window.cast?.framework?.messages?.ResumeState;
-      if (typeof playerManager?.seek === 'function' && typeof SeekRequestDataCtor === 'function') {
-        const seekRequestData = new SeekRequestDataCtor();
-        seekRequestData.currentTime = clampedTargetSec;
-        if (ResumeState?.PLAYBACK_START) {
-          seekRequestData.resumeState = ResumeState.PLAYBACK_START;
-        }
-        playerManager.seek(seekRequestData);
-        seekApplied = true;
-      }
-    } catch {
-      // Fall back to direct media-element seek below.
-    }
-
-    if (!seekApplied) {
-      const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
-      if (mediaElement) {
-        mediaElement.currentTime = clampedTargetSec;
-        seekApplied = true;
-      }
-    }
-
-    if (!seekApplied) {
-      this.recordReceiverEvent('Skip failed', 'No supported seek API available');
-      return;
-    }
-
-    // Some receiver runtimes report seek success but do not move immediately.
-    // Re-apply via media element if playback position remains behind target.
-    setTimeout(() => {
-      const position = playerManager?.getCurrentTimeSec?.() ?? 0;
-      if (!isFinite(position) || position + 0.25 >= clampedTargetSec) {
-        return;
-      }
-
-      const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
-      if (!mediaElement) {
-        return;
-      }
-
-      mediaElement.currentTime = clampedTargetSec;
-      this.recordReceiverEvent('Skip retry applied', `${message.timeCodeType} -> ${clampedTargetSec.toFixed(1)}s`);
-    }, 250);
-
-    this.currentTimeSec.set(clampedTargetSec);
-    this.recordReceiverEvent('Skip applied', `${message.timeCodeType} -> ${targetTimeSec.toFixed(1)}s`);
-    this.updateSkipAvailabilityForCurrentTime(clampedTargetSec);
+    this.recordReceiverEvent('Skip requested', `${message.timeCodeType} -> ${targetTimeSec.toFixed(1)}s`);
+    this.attemptSeekToTime(playerManager, targetTimeSec, 0);
   }
 
   private applySessionUpdate(message: CastSessionUpdateMessage): void {
