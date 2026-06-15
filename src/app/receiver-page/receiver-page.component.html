@@ -1,8 +1,6 @@
 
 <main class="receiver-root">
-  <cast-media-player class="native-media-player">
-    <video class="castMediaElement" autoplay playsinline></video>
-  </cast-media-player>
+  <video class="cast-media-element castMediaElement" autoplay playsinline></video>
 
   @if (showDebugOverlay) {
     <aside class="receiver-debug" aria-label="Receiver debug overlay">
@@ -102,6 +100,32 @@
           <img src="/spot%202.png" alt="Promoted content spot 2" />
         </article>
       </aside>
+    }
+
+    @if (showProgressBarLogo()) {
+      <div class="custom-controls" aria-hidden="true">
+        <div class="custom-controls-top">
+          <div class="custom-controls-meta">
+            <span class="custom-controls-title">{{ title() }}</span>
+            <span class="custom-controls-subtitle">{{ subtitle() }}</span>
+          </div>
+          <div class="custom-controls-time">
+            <span>{{ formatTime(currentTimeSec()) }}</span>
+            <span class="custom-controls-time-sep">/</span>
+            <span>{{ formatTime(durationSec()) }}</span>
+          </div>
+        </div>
+        <div class="custom-controls-track">
+          <div
+            class="custom-controls-fill"
+            [style.width.%]="durationSec() > 0 ? (currentTimeSec() / durationSec()) * 100 : 0"
+          ></div>
+          <div
+            class="custom-controls-buffered"
+            [style.width.%]="0"
+          ></div>
+        </div>
+      </div>
     }
 
     <section class="info" aria-live="polite">
