@@ -427,16 +427,42 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     const targetTimeSec = active.endTime;
-    const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
-    if (!mediaElement || !isFinite(targetTimeSec)) {
-      this.recordReceiverEvent('Skip failed', 'Media element unavailable');
+    if (!isFinite(targetTimeSec)) {
+      this.recordReceiverEvent('Skip failed', 'Target time is invalid');
       return;
     }
 
-    mediaElement.currentTime = Math.max(0, targetTimeSec);
-    this.currentTimeSec.set(Math.max(0, targetTimeSec));
+    const clampedTargetSec = Math.max(0, targetTimeSec);
+    let seekApplied = false;
+
+    try {
+      const SeekRequestDataCtor = window.cast?.framework?.messages?.SeekRequestData;
+      if (typeof playerManager?.seek === 'function' && typeof SeekRequestDataCtor === 'function') {
+        const seekRequestData = new SeekRequestDataCtor();
+        seekRequestData.currentTime = clampedTargetSec;
+        playerManager.seek(seekRequestData);
+        seekApplied = true;
+      }
+    } catch {
+      // Fall back to direct media-element seek below.
+    }
+
+    if (!seekApplied) {
+      const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
+      if (mediaElement) {
+        mediaElement.currentTime = clampedTargetSec;
+        seekApplied = true;
+      }
+    }
+
+    if (!seekApplied) {
+      this.recordReceiverEvent('Skip failed', 'No supported seek API available');
+      return;
+    }
+
+    this.currentTimeSec.set(clampedTargetSec);
     this.recordReceiverEvent('Skip applied', `${message.timeCodeType} -> ${targetTimeSec.toFixed(1)}s`);
-    this.updateSkipAvailabilityForCurrentTime(targetTimeSec);
+    this.updateSkipAvailabilityForCurrentTime(clampedTargetSec);
   }
 
   private applySessionUpdate(message: CastSessionUpdateMessage): void {
