@@ -14,7 +14,6 @@ declare global {
 
 const CAST_RECEIVER_SCRIPT_URL = 'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js';
 const NEXT_UP_PREVIEW_SECONDS = 30;
-const CONTROLS_HIDE_DELAY_MS = 5000;
 const DEBUG_EVENT_THROTTLE_MS = 500;
 const SHOW_DEBUG_OVERLAY = false;
 const CONFIG_ENDPOINT_URL = 'https://prod95-cdn.dr-massive.com/api/config?device=chromecast&ff=idp%2Cldp%2Crpt&include=classification%2Csubscription%2Csitemap%2Cnavigation%2Cgeneral%2Ci18n%2Cplayback%2Clinear%2CfeatureFlags&lang=da&segments=drtv&sub=Registered';
@@ -195,10 +194,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   protected readonly hasSenderConnected = signal(false);
   protected readonly queueStatus = signal<string>('idle');
   protected readonly isPlaying = signal(false);
-  protected readonly showProgressBarLogo = signal(false);
   protected readonly currentTimeSec = signal(0);
   protected readonly durationSec = signal(0);
-  private controlsHideTimer: ReturnType<typeof setTimeout> | null = null;
   protected readonly nextItemTitle = signal<string | null>(null);
   protected readonly nextItemThumbnail = signal<string | null>(null);
   protected readonly showNextUp = signal(false);
@@ -429,8 +426,11 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const targetTimeSec = active.endTime;
-    if (!isFinite(targetTimeSec)) {
+    const currentTimeSec = playerManager?.getCurrentTimeSec?.() ?? this.currentTimeSec();
+    const deltaSeconds = Math.max(0, active.duration);
+    const targetFromDuration = isFinite(currentTimeSec) ? currentTimeSec + deltaSeconds : active.endTime;
+    const targetTimeSec = Math.max(active.endTime, targetFromDuration);
+    if (!isFinite(targetTimeSec) || targetTimeSec <= 0) {
       this.recordReceiverEvent('Skip failed', 'Target time is invalid');
       return;
     }
@@ -466,6 +466,23 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       this.recordReceiverEvent('Skip failed', 'No supported seek API available');
       return;
     }
+
+    // Some receiver runtimes report seek success but do not move immediately.
+    // Re-apply via media element if playback position remains behind target.
+    setTimeout(() => {
+      const position = playerManager?.getCurrentTimeSec?.() ?? 0;
+      if (!isFinite(position) || position + 0.25 >= clampedTargetSec) {
+        return;
+      }
+
+      const mediaElement = playerManager?.getMediaElement?.() as HTMLMediaElement | null;
+      if (!mediaElement) {
+        return;
+      }
+
+      mediaElement.currentTime = clampedTargetSec;
+      this.recordReceiverEvent('Skip retry applied', `${message.timeCodeType} -> ${clampedTargetSec.toFixed(1)}s`);
+    }, 250);
 
     this.currentTimeSec.set(clampedTargetSec);
     this.recordReceiverEvent('Skip applied', `${message.timeCodeType} -> ${targetTimeSec.toFixed(1)}s`);
@@ -519,27 +536,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.controlsHideTimer !== null) {
-      clearTimeout(this.controlsHideTimer);
-    }
-  }
-
-  protected formatTime(secs: number): string {
-    if (!isFinite(secs) || secs < 0) return '0:00';
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    const s = Math.floor(secs % 60);
-    const mm = String(m).padStart(h > 0 ? 2 : 1, '0');
-    const ss = String(s).padStart(2, '0');
-    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-  }
-
-  private setProgressBarLogoVisible(visible: boolean): void {
-    if (this.controlsHideTimer !== null) {
-      clearTimeout(this.controlsHideTimer);
-      this.controlsHideTimer = null;
-    }
-    this.showProgressBarLogo.set(visible);
+    // no-op
   }
 
   private updateUiState(): void {
@@ -1106,12 +1103,6 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         });
       }
 
-      const controls = window.cast?.framework?.ui?.Controls?.getInstance?.();
-      if (controls?.clearDefaultSlotAssignments) {
-        controls.clearDefaultSlotAssignments();
-        this.recordReceiverEvent('Disabled default cast-media-player overlay controls');
-      }
-
       context.addCustomMessageListener(DR_TV_CUSTOM_NAMESPACE, (event: any) => {
         const senderId = event?.senderId;
         if (typeof senderId === 'string' && senderId.trim()) {
@@ -1254,20 +1245,6 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         }
         this.isPlaying.set(playerState === 'PLAYING' || playerState === 'BUFFERING' || playerState === 'LOADING');
         this.updateUiState();
-        if (playerState === 'PAUSED') {
-          this.setProgressBarLogoVisible(true);
-        } else if (playerState === 'PLAYING' || playerState === 'BUFFERING' || playerState === 'LOADING') {
-          this.showProgressBarLogo.set(true);
-          if (this.controlsHideTimer !== null) {
-            clearTimeout(this.controlsHideTimer);
-          }
-          this.controlsHideTimer = setTimeout(() => {
-            this.showProgressBarLogo.set(false);
-            this.controlsHideTimer = null;
-          }, CONTROLS_HIDE_DELAY_MS);
-        } else {
-          this.setProgressBarLogoVisible(false);
-        }
       });
       playerManager.addEventListener(EventType.TIME_UPDATE, () => {
         const current = playerManager.getCurrentTimeSec();
