@@ -193,7 +193,7 @@ function loadReceiverFramework(): Promise<void> {
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class ReceiverPageComponent implements OnInit, OnDestroy {
-  protected readonly appVersion = signal('0.0.1');
+  protected readonly appVersion = signal('0.0.24');
   protected readonly showDebugOverlay = SHOW_DEBUG_OVERLAY;
   protected readonly title = signal('Waiting for content');
   protected readonly subtitle = signal('Idle');
@@ -852,6 +852,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
 
     loadRequestData.media.metadata = metadata;
+    this.applyEmbeddedBreakMetadata(loadRequestData.media, resolvedPlayback.skipTimeCode ?? null);
 
     const textTracks = resolvedPlayback.textTracks ?? [];
     const subtitlesEnabled = resolvedPlayback.subtitlesEnabled === true;
@@ -871,6 +872,44 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       this.pendingSubtitlesEnabled = false;
       loadRequestData.activeTrackIds = [];
     }
+  }
+
+  private applyEmbeddedBreakMetadata(media: any, skipTimeCode: NormalizedTimeCode | null): void {
+    if (!media) {
+      return;
+    }
+
+    if (!skipTimeCode) {
+      media.breakClips = [];
+      media.breaks = [];
+      return;
+    }
+
+    const messages = window.cast?.framework?.messages;
+    const BreakClipCtor = messages?.BreakClip;
+    const BreakCtor = messages?.Break;
+    const clipId = skipTimeCode.timeCodeType.trim().toLowerCase() || 'intro';
+    const breakId = `${clipId}-break`;
+    const duration = Math.max(0, skipTimeCode.duration);
+    const position = Math.max(0, skipTimeCode.startTime);
+
+    const breakClip = typeof BreakClipCtor === 'function'
+      ? new BreakClipCtor(clipId)
+      : { id: clipId };
+    breakClip.title = `Skip ${skipTimeCode.timeCodeType}`;
+    breakClip.duration = duration;
+    breakClip.whenSkippable = 0;
+    breakClip.embedded = true;
+
+    const breakData = typeof BreakCtor === 'function'
+      ? new BreakCtor(breakId, [clipId], position)
+      : { id: breakId, breakClipIds: [clipId], position };
+    breakData.duration = duration;
+    breakData.isEmbedded = true;
+    breakData.expanded = false;
+
+    media.breakClips = [breakClip];
+    media.breaks = [breakData];
   }
 
   private selectPlayableMediaFile(mediaFiles: MediaFile[], preferredAccessService: string | null = null): MediaFile | null {
