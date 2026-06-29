@@ -21,7 +21,7 @@
    border-left: 2px solid #007aff;
    color: #fff;
    font-family: monospace;
-   font-size: 10px;
+   font-size: 6px;
    overflow-y: auto;
    overflow-x: hidden;
    z-index: 10000;
@@ -33,7 +33,7 @@
    .receiver-debug {
      max-width: 320px;
      max-height: 85vh;
-     font-size: 9px;
+     font-size: 5px;
    }
  }
 
@@ -47,16 +47,16 @@
      border-left: none;
      border-top: 2px solid #007aff;
      border-bottom: 2px solid #007aff;
-     font-size: 8px;
+     font-size: 4px;
    }
 
    .receiver-debug-list dt {
      flex: 0 0 70px;
-     font-size: 7px;
+     font-size: 3px;
    }
 
    .receiver-debug-list dd {
-     font-size: 7px;
+     font-size: 3px;
    }
 
    .receiver-debug-card {
@@ -68,28 +68,28 @@
    }
 
    .receiver-debug-title {
-     font-size: 11px;
+     font-size: 6px;
    }
 
    .receiver-debug-subtitle {
-     font-size: 8px;
+     font-size: 4px;
    }
  }
 
  @media (max-width: 480px) {
    .receiver-debug {
-     font-size: 7px;
+     font-size: 4px;
      max-height: 70vh;
      top: 50%;
    }
 
    .receiver-debug-list dt {
      flex: 0 0 50px;
-     font-size: 6px;
+     font-size: 3px;
    }
 
    .receiver-debug-list dd {
-     font-size: 6px;
+     font-size: 3px;
    }
 
    .receiver-debug-grid {
@@ -102,7 +102,7 @@
    }
 
    .receiver-debug-card-title {
-     font-size: 8px;
+     font-size: 4px;
      margin-bottom: 2px;
    }
 
@@ -111,15 +111,15 @@
    }
    
    .receiver-debug-subtitle {
-     font-size: 6px;
+     font-size: 3px;
    }
 
    .receiver-debug-title {
-     font-size: 11px;
+     font-size: 6px;
    }
 
    .receiver-debug-subtitle {
-     font-size: 8px;
+     font-size: 4px;
    }
  }
 
@@ -134,14 +134,14 @@
 
  .receiver-debug-title {
    margin: 0;
-   font-size: 13px;
+   font-size: 8px;
    font-weight: bold;
    color: #00d4ff;
  }
 
  .receiver-debug-subtitle {
    margin: 4px 0 0 0;
-   font-size: 10px;
+   font-size: 6px;
    color: #888;
  }
 
@@ -165,7 +165,7 @@
 
  .receiver-debug-card-title {
    margin: 0 0 6px 0;
-   font-size: 11px;
+   font-size: 6px;
    font-weight: bold;
    color: #00d4ff;
    text-transform: uppercase;
@@ -192,7 +192,7 @@
    flex: 0 0 auto;
    min-width: 80px;
    color: #888;
-   font-size: 10px;
+   font-size: 6px;
    text-transform: uppercase;
    font-weight: bold;
  }
@@ -216,7 +216,7 @@
  .receiver-error-message {
    margin: 0;
    color: #ff6b6b;
-   font-size: 11px;
+   font-size: 7px;
    font-weight: bold;
  }
 
