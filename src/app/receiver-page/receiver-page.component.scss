@@ -15,7 +15,7 @@
    left: 50%;
    transform: translate(-50%, -50%);
    width: 100%;
-   max-width: 360px;
+   max-width: 700px;
    background: rgba(20, 20, 20, 0.95);
    border: 2px solid #007aff;
    color: #fff;
@@ -30,7 +30,7 @@
 
  @media (max-width: 1024px) {
    .receiver-debug {
-     max-width: 320px;
+     max-width: 600px;
      font-size: 5px;
    }
  }
@@ -44,6 +44,10 @@
      overflow-y: auto;
      border: 2px solid #007aff;
      font-size: 4px;
+   }
+
+   .receiver-debug-grid {
+     grid-template-columns: 1fr;
    }
 
    .receiver-debug-list dt {
@@ -143,7 +147,7 @@
 
  .receiver-debug-grid {
    display: grid;
-   grid-template-columns: 1fr;
+   grid-template-columns: 1fr 1fr;
    gap: 8px;
    padding: 8px;
  }
