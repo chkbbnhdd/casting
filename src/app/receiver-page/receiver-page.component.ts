@@ -53,7 +53,7 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Semantic version displayed in the debug overlay. */
   protected readonly appVersion = signal('0.0.24');
   /** Controls whether the debug overlay panel is rendered. */
-  protected readonly showDebugOverlay = this.showDebugOverlayEnabled;
+  protected readonly showDebugOverlay = signal(true); // Always show for debugging
   /** Primary content title shown in the receiver UI. */
   protected readonly title = signal('Waiting for content');
   /** Secondary subtitle shown beneath the title. */
@@ -384,7 +384,7 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
     const summary = details ? `${eventName}: ${details}` : eventName;
     this.pushLog(summary);
 
-    if (!this.showDebugOverlay) {
+    if (!this.showDebugOverlay()) {
       return;
     }
 

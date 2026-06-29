@@ -2,8 +2,8 @@
 <main class="receiver-root">
   <cast-media-player id="player" class="native-media-player">
   </cast-media-player>
-<!-- 
-  @if (showDebugOverlay) {
+
+  @if (showDebugOverlay()) {
   <aside class="receiver-debug" aria-label="Receiver debug overlay">
     <header class="receiver-debug-head">
       <p class="receiver-debug-title">Receiver debug</p>
@@ -125,6 +125,6 @@
         <p class="receiver-error-message">{{ receiverError() }}</p>
       </div>
     </div>
-  }  -->
+  }
   
 </main>
