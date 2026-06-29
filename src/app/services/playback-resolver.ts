@@ -87,7 +87,7 @@ export class PlaybackResolver {
       throw err;
     }
 
-    let primaryFile;
+    let primaryFile: any;
     try {
       primaryFile = this.assetNegotiator.selectPlayableMediaFile(mediaFiles, preferredAccessService);
       const streamUrl = primaryFile?.url;
@@ -105,7 +105,7 @@ export class PlaybackResolver {
     const skipTimeCode = this.extractSkipTimeCode(mediaFiles, 'Intro');
     const subtitles = this.subtitleBuilder.resolveSubtitleSource(
       mediaFiles,
-      primaryFile,
+      primaryFile!,
       preferredAccessService,
       (s) => this.isSpokenAccessService(s),
       (s) => this.isStandardAccessService(s)
