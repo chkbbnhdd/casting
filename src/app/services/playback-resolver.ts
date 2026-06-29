@@ -49,24 +49,56 @@ export class PlaybackResolver {
       throw new Error('Queue item path is missing.');
     }
 
+    console.log('[PlaybackResolver] Step 1: Normalized path:', normalizedPath);
+
     // Fetch and parse page metadata
-    const pageData = await this.fetchPageData(normalizedPath);
+    let pageData;
+    try {
+      pageData = await this.fetchPageData(normalizedPath);
+      console.log('[PlaybackResolver] Step 2: Page data fetched successfully');
+    } catch (err: any) {
+      console.error('[PlaybackResolver] Step 2 FAILED: Page fetch error -', err?.message ?? String(err));
+      throw err;
+    }
+
     const firstEntry = Array.isArray(pageData?.entries) ? pageData.entries[0] : null;
     const pageItem = firstEntry?.item;
 
     // Extract item ID
-    const itemId = this.itemIdExtractor.extract(normalizedPath, pageItem);
-    if (!itemId) {
-      throw new Error('Unable to resolve item id from page response.');
+    let itemId;
+    try {
+      itemId = this.itemIdExtractor.extract(normalizedPath, pageItem);
+      if (!itemId) {
+        throw new Error('Unable to resolve item id from page response.');
+      }
+      console.log('[PlaybackResolver] Step 3: Item ID extracted:', itemId);
+    } catch (err: any) {
+      console.error('[PlaybackResolver] Step 3 FAILED: Item ID extraction error -', err?.message ?? String(err));
+      throw err;
     }
 
     // Fetch and select video streams
-    const mediaFiles = await this.fetchMediaFiles(itemId);
-    const primaryFile = this.assetNegotiator.selectPlayableMediaFile(mediaFiles, preferredAccessService);
-    const streamUrl = primaryFile?.url;
+    let mediaFiles;
+    try {
+      mediaFiles = await this.fetchMediaFiles(itemId);
+      console.log('[PlaybackResolver] Step 4: Media files fetched, count:', mediaFiles?.length ?? 0);
+    } catch (err: any) {
+      console.error('[PlaybackResolver] Step 4 FAILED: Media fetch error -', err?.message ?? String(err));
+      throw err;
+    }
 
-    if (!streamUrl) {
-      throw new Error('No playable stream URL found in video response.');
+    let primaryFile;
+    try {
+      primaryFile = this.assetNegotiator.selectPlayableMediaFile(mediaFiles, preferredAccessService);
+      const streamUrl = primaryFile?.url;
+
+      if (!streamUrl) {
+        throw new Error('No playable stream URL found in video response.');
+      }
+      console.log('[PlaybackResolver] Step 5: Primary file selected, URL:', streamUrl.substring(0, 100) + '...');
+    } catch (err: any) {
+      console.error('[PlaybackResolver] Step 5 FAILED: Media selection error -', err?.message ?? String(err));
+      throw err;
     }
 
     // Extract metadata
@@ -79,9 +111,9 @@ export class PlaybackResolver {
       (s) => this.isStandardAccessService(s)
     );
 
-    return {
+    const result = {
       itemId,
-      streamUrl,
+      streamUrl: primaryFile.url,
       mimeType: this.assetNegotiator.resolveMimeType(primaryFile),
       title: firstEntry?.title ?? pageData?.title ?? item?.title,
       subtitle: pageItem?.episodeName ?? pageItem?.showName ?? item?.subtitle,
@@ -93,6 +125,9 @@ export class PlaybackResolver {
       textTracks: this.subtitleBuilder.buildTracks(subtitles),
       skipTimeCode,
     };
+
+    console.log('[PlaybackResolver] ✓ Complete: Stream URL resolved successfully');
+    return result;
   }
 
   /**

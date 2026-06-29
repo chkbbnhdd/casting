@@ -601,7 +601,17 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
               this.pushLog(`Resolving page for path ${normalizedPath}`);
               
-              const resolvedPlayback = await this.playbackResolver.resolve(selectedItem, null);
+              let resolvedPlayback;
+              try {
+                resolvedPlayback = await this.playbackResolver.resolve(selectedItem, null);
+                this.pushLog('Playback resolution succeeded');
+              } catch (resolutionError: any) {
+                const resolutionMessage = resolutionError?.message ?? String(resolutionError);
+                this.pushLog('❌ Playback resolution failed: ' + resolutionMessage);
+                this.receiverError.set('Playback resolution failed: ' + resolutionMessage);
+                this.updateDebugState({ lastError: 'Resolution: ' + resolutionMessage });
+                throw resolutionError;
+              }
 
               this.storedActiveItemId = selectedItem.id;
               this.title.set(resolvedPlayback.title || selectedItem.title || 'Untitled');
@@ -612,8 +622,18 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
                 selectedItem.posterUrl = resolvedPlayback.posterUrl;
               }
 
-              this.playbackDataMapper.applyToLoadRequest(loadRequestData, resolvedPlayback);
+              try {
+                this.playbackDataMapper.applyToLoadRequest(loadRequestData, resolvedPlayback);
+                this.pushLog('Applied playback data to load request');
+              } catch (mapperError: any) {
+                const mapperMessage = mapperError?.message ?? String(mapperError);
+                this.pushLog('❌ Failed to apply playback data: ' + mapperMessage);
+                throw mapperError;
+              }
+
               this.updateDebugState({
+                itemId: resolvedPlayback.itemId,
+                videoUrl: resolvedPlayback.streamUrl,
                 streamUrl: resolvedPlayback.streamUrl,
                 contentType: resolvedPlayback.mimeType,
               });
@@ -623,7 +643,7 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
                   ? `${resolvedPlayback.skipTimeCode.timeCodeType} ${resolvedPlayback.skipTimeCode.startTime}-${resolvedPlayback.skipTimeCode.endTime}s`
                   : 'none',
               });
-              this.pushLog('Set contentUrl from resolved playback: ' + resolvedPlayback.streamUrl);
+              this.pushLog('✓ Set contentUrl from resolved playback: ' + resolvedPlayback.streamUrl);
             }
           } else if (loadRequestData?.media?.customData?.selectedItemTitle) {
             const t = loadRequestData.media.customData.selectedItemTitle;
@@ -667,9 +687,10 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         } catch (e: any) {
           const message = e?.message ?? String(e);
+          const stack = e?.stack ? '\n' + e.stack.split('\n').slice(0, 3).join('\n') : '';
           this.receiverError.set(message);
           this.updateDebugState({ lastError: message });
-          this.pushLog('Error processing LOAD message: ' + message);
+          this.pushLog('❌ Error processing LOAD message: ' + message + stack);
           throw e;
         }
 
