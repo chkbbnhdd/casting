@@ -1,119 +1,121 @@
 
 <main class="receiver-root">
-  <cast-media-player class="native-media-player">
-    <video class="castMediaElement" autoplay playsinline></video>
+  <cast-media-player id="player" class="native-media-player">
   </cast-media-player>
-
-  @if (skipUiState() !== 'idle') {
-    <section class="skip-screen" aria-live="polite" aria-label="Skipping intro">
-      <div class="skip-screen-card">
-        <p class="skip-screen-label">Skipping intro</p>
-        <h2>Jumping to {{ debugState().skipTarget ?? 'the next scene' }}</h2>
-        <p class="skip-screen-copy">
-          {{ skipUiState() === 'seeking' ? 'Hold on while the video jumps forward.' : 'Resuming playback.' }}
-        </p>
-      </div>
-    </section>
-  }
-
+<!-- 
   @if (showDebugOverlay) {
-    <aside class="receiver-debug" aria-label="Receiver debug overlay">
+  <aside class="receiver-debug" aria-label="Receiver debug overlay">
+    <header class="receiver-debug-head">
       <p class="receiver-debug-title">Receiver debug</p>
-      <dl class="receiver-debug-grid">
-        <!-- <div>
-          <dt>Path</dt>
-          <dd>{{ debugState().path ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Page status</dt>
-          <dd>{{ debugState().pageStatus ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Item id</dt>
-          <dd>{{ debugState().itemId ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Video status</dt>
-          <dd>{{ debugState().videoStatus ?? '-' }}</dd>
-        </div>
-        <div class="receiver-debug-span">
-          <dt>Page URL</dt>
-          <dd>{{ debugState().pageUrl ?? '-' }}</dd>
-        </div>
-        <div class="receiver-debug-span">
-          <dt>Video URL</dt>
-          <dd>{{ debugState().videoUrl ?? '-' }}</dd>
-        </div>
-        <div class="receiver-debug-span">
-          <dt>Stream URL</dt>
-          <dd>{{ debugState().streamUrl ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Content type</dt>
-          <dd>{{ debugState().contentType ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Session accessToken</dt>
-          <dd>{{ debugState().sessionAccessToken ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Session idToken</dt>
-          <dd>{{ debugState().sessionIdToken ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Session anonymousId</dt>
-          <dd>{{ debugState().sessionAnonymousId ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Session segments</dt>
-          <dd>{{ debugState().sessionSegments.length ? debugState().sessionSegments.join(', ') : '-' }}</dd>
-        </div>
-        <div>
-          <dt>Session updated</dt>
-          <dd>{{ debugState().sessionUpdatedAt ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Player state</dt>
-          <dd>{{ debugState().playerState ?? '-' }}</dd>
-        </div>
-        <div class="receiver-debug-span">
-          <dt>Last event</dt>
-          <dd>{{ debugState().lastEvent ?? '-' }}</dd>
-        </div>
-        <div class="receiver-debug-span">
-          <dt>Last error</dt>
-          <dd>{{ debugState().lastError ?? '-' }}</dd>
-        </div> -->
-        <div class="receiver-debug-span">
-          <dt>Skip timeCode</dt>
-          <dd>{{ debugState().skipTimeCode ?? '-' }}</dd>
-        </div>
-        <div class="receiver-debug-span">
-          <dt>Skip last msg</dt>
-          <dd>{{ debugState().skipLastMsg ?? '-' }}</dd>
-        </div>
-        <div class="receiver-debug-span">
-          <dt>Skip seekable</dt>
-          <dd>{{ debugState().skipSeekable ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Skip APIs</dt>
-          <dd>{{ debugState().skipApis ?? '-' }}</dd>
-        </div>
-        <div class="receiver-debug-span">
-          <dt>Skip status</dt>
-          <dd>{{ debugState().skipStatus ?? '-' }}</dd>
-        </div>
-        <div>
-          <dt>Skip UI state</dt>
-          <dd>{{ skipUiState() }}</dd>
-        </div>
-        <div class="receiver-debug-span">
-          <dt>Skip target</dt>
-          <dd>{{ debugState().skipTarget ?? '-' }}</dd>
-        </div>
-      </dl>
-    </aside>
+      <p class="receiver-debug-subtitle">Live runtime diagnostics</p>
+    </header>
+
+    <section class="receiver-debug-grid" aria-label="Debug details">
+      <article class="receiver-debug-card">
+        <p class="receiver-debug-card-title">Playback</p>
+        <dl class="receiver-debug-list">
+          <div>
+            <dt>Player state</dt>
+            <dd>{{ debugState().playerState ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Content type</dt>
+            <dd>{{ debugState().contentType ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Item id</dt>
+            <dd>{{ debugState().itemId ?? '-' }}</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="receiver-debug-card">
+        <p class="receiver-debug-card-title">Network</p>
+        <dl class="receiver-debug-list">
+          <div>
+            <dt>Path</dt>
+            <dd>{{ debugState().path ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Page status</dt>
+            <dd>{{ debugState().pageStatus ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Video status</dt>
+            <dd>{{ debugState().videoStatus ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Session updated</dt>
+            <dd>{{ debugState().sessionUpdatedAt ?? '-' }}</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="receiver-debug-card receiver-debug-card-wide">
+        <p class="receiver-debug-card-title">URLs</p>
+        <dl class="receiver-debug-list">
+          <div>
+            <dt>Page URL</dt>
+            <dd>{{ debugState().pageUrl ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Video URL</dt>
+            <dd>{{ debugState().videoUrl ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Stream URL</dt>
+            <dd>{{ debugState().streamUrl ?? '-' }}</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="receiver-debug-card">
+        <p class="receiver-debug-card-title">Session</p>
+        <dl class="receiver-debug-list">
+          <div>
+            <dt>Access token</dt>
+            <dd>{{ debugState().sessionAccessToken ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>ID token</dt>
+            <dd>{{ debugState().sessionIdToken ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Anonymous ID</dt>
+            <dd>{{ debugState().sessionAnonymousId ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Segments</dt>
+            <dd>{{ debugState().sessionSegments.length ? debugState().sessionSegments.join(', ') : '-' }}</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="receiver-debug-card">
+        <p class="receiver-debug-card-title">Break API</p>
+        <dl class="receiver-debug-list">
+          <div>
+            <dt>Time code</dt>
+            <dd>{{ debugState().skipTimeCode ?? '-' }}</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="receiver-debug-card receiver-debug-card-wide">
+        <p class="receiver-debug-card-title">Events</p>
+        <dl class="receiver-debug-list">
+          <div>
+            <dt>Last event</dt>
+            <dd>{{ debugState().lastEvent ?? '-' }}</dd>
+          </div>
+          <div>
+            <dt>Last error</dt>
+            <dd>{{ debugState().lastError ?? '-' }}</dd>
+          </div>
+        </dl>
+      </article>
+    </section>
+  </aside>
   }
 
   @if (receiverError()) {
@@ -123,51 +125,6 @@
         <p class="receiver-error-message">{{ receiverError() }}</p>
       </div>
     </div>
-  } @else if (skipUiState() === 'idle') {
-    <div class="logo">
-      @if (!isPlaying()) {
-        <!-- <img src="/dr_logo.svg" alt="DR logo" /> -->
-        <div class="idle-copy">
-          <p class="idle-message">Du kan nu caste på dit TV</p>
-        </div>
-      }
-    </div>
-
-    @if (!isPlaying()) {
-      <aside class="promo-rail" aria-label="Promoted content">
-        <article class="promo-spot">
-          <img src="/spot%201.png" alt="Promoted content spot 1" />
-        </article>
-        <article class="promo-spot">
-          <img src="/spot%202.png" alt="Promoted content spot 2" />
-        </article>
-      </aside>
-    }
-
-    <section class="info" aria-live="polite">
-      @if (showNextUp() && nextItemTitle() && nextItemThumbnail()) {
-        <aside class="next-up" aria-label="Next in queue">
-          <p class="next-label">Next up</p>
-          <div class="next-item">
-            <img class="next-thumbnail" [src]="nextItemThumbnail()!" [alt]="nextItemTitle()!" />
-            <p class="next-title">{{ nextItemTitle() }}</p>
-          </div>
-        </aside>
-      }
-    </section>
-  } @else {
-    <section class="skip-screen" aria-live="polite" aria-label="Skipping intro">
-      <div class="skip-screen-card">
-        <p class="skip-screen-label">Skipping intro</p>
-        <h2>Jumping to {{ debugState().skipTarget ?? 'the next scene' }}</h2>
-        <p class="skip-screen-copy">
-          {{ skipUiState() === 'seeking' ? 'Hold on while the video jumps forward.' : 'Resuming playback.' }}
-        </p>
-      </div>
-    </section>
-  }
-
-  @if (!isPlaying()) {
-    <p class="receiver-version" aria-label="App version">v. {{ appVersion() }}</p>
-  }
+  }  -->
+  
 </main>

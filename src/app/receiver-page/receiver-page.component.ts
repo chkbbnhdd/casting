@@ -1,215 +1,83 @@
 import { CommonModule } from '@angular/common';
-import { Component, CUSTOM_ELEMENTS_SCHEMA, OnDestroy, OnInit, signal } from '@angular/core';
-import { MediaFile } from '../../api/video-v1/model/mediaFile';
-import { Subtitles } from '../../api/video-v1/model/subtitles';
-import { TimeCodes } from '../../api/video-v1/model/timeCodes';
-import { CastSessionUpdateMessage, CastSkipTimeCodeMessage, CastTimeCodeAvailabilityMessage } from '../../sdk';
+import { AfterViewInit, Component, CUSTOM_ELEMENTS_SCHEMA, OnDestroy, OnInit, signal } from '@angular/core';
+import { environment } from '../environments/environment';
+import { ReceiverDebugState, ReceiverUiState } from '../models/receiver-ui.model';
+import { ResolvedPlayback } from '../models/playback.model';
+import { ManifestInfo, TrackingManager, TrackingPlaybackContext, TrackingPlayerState } from '../tracking';
+import {
+  PlaybackConfigService,
+  enrichMediaStatus,
+  SessionManager,
+  ConfigLoader,
+  PlaybackResolver,
+  PlaybackDataMapper,
+  BreakUISuppressor,
+  ReceiverLogger,
+} from '../services';
 
-declare global {
-  interface Window {
-    cast?: any;
-    __onGCastApiAvailable?: (isAvailable: boolean) => void;
-  }
-}
-
-const CAST_RECEIVER_SCRIPT_URL = 'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js';
-const NEXT_UP_PREVIEW_SECONDS = 30;
-const DEBUG_EVENT_THROTTLE_MS = 500;
-const SHOW_DEBUG_OVERLAY = false;
-const CONFIG_ENDPOINT_URL = 'https://prod95-cdn.dr-massive.com/api/config?device=chromecast&ff=idp%2Cldp%2Crpt&include=classification%2Csubscription%2Csitemap%2Cnavigation%2Cgeneral%2Ci18n%2Cplayback%2Clinear%2CfeatureFlags&lang=da&segments=drtv&sub=Registered';
-const PAGE_ENDPOINT_BASE_URL = 'https://prod95-cdn.dr-massive.com/api/page';
-const VIDEO_ENDPOINT_BASE_URL = 'https://prod95.dr-massive.com/api/account/items';
-const VIDEO_ENDPOINT_DEVICE = 'chromecast';
-const DR_TV_CUSTOM_NAMESPACE = 'urn:x-cast:dk.dr.tv.chromecast';
-const SKIP_TIME_CODE_TYPE = 'Intro';
-
-type ReceiverUiState = 'awaiting-cast' | 'connected-idle' | 'playing';
-
-interface ResolvedPlayback {
-  streamUrl: string;
-  mimeType: string;
-  title?: string;
-  subtitle?: string;
-  posterUrl?: string;
-  accessService?: string | null;
-  subtitlesEnabled?: boolean;
-  textTracks?: any[];
-  skipTimeCode?: NormalizedTimeCode | null;
-}
-
-interface QueueItemRuntimeData {
-  path: string | null;
-  accessToken: string | null;
-  preferredAccessService: string | null;
-}
-
-interface QueueItemPreview {
-  title: string | null;
-  thumbnail: string | null;
-}
-
-interface NormalizedTimeCode {
-  startTime: number;
-  endTime: number;
-  duration: number;
-  timeCodeType: string;
-}
-
-interface ReceiverSessionContext {
-  accessToken: string | null;
-  idToken: string | null;
-  segments: string[];
-  anonymousId: string | null;
-}
-
-interface ReceiverDebugState {
-  path: string | null;
-  pageUrl: string | null;
-  pageStatus: number | null;
-  itemId: string | null;
-  videoUrl: string | null;
-  videoStatus: number | null;
-  streamUrl: string | null;
-  contentType: string | null;
-  sessionAccessToken: string | null;
-  sessionIdToken: string | null;
-  sessionSegments: string[];
-  sessionAnonymousId: string | null;
-  sessionUpdatedAt: string | null;
-  playerState: string | null;
-  lastEvent: string | null;
-  lastError: string | null;
-  skipTimeCode: string | null;
-  skipLastMsg: string | null;
-  skipSeekable: string | null;
-  skipApis: string | null;
-  skipStatus: string | null;
-  skipTarget: string | null;
-}
-
-type SkipUiState = 'idle' | 'seeking' | 'completed';
-
-function loadReceiverFramework(): Promise<void> {
-  if (typeof window === 'undefined' || typeof document === 'undefined') {
-    return Promise.reject(new Error('Cast receiver framework requires a browser environment.'));
-  }
-
-  if (window.cast?.framework?.CastReceiverContext) {
-    return Promise.resolve();
-  }
-
-  return new Promise<void>((resolve, reject) => {
-    let settled = false;
-    const previousCallback = window.__onGCastApiAvailable;
-    const completeResolve = (): void => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimeout(timeoutId);
-      window.__onGCastApiAvailable = previousCallback;
-      resolve();
-    };
-
-    const completeReject = (error: Error): void => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimeout(timeoutId);
-      window.__onGCastApiAvailable = previousCallback;
-      reject(error);
-    };
-
-    const isFrameworkReady = (): boolean => Boolean(window.cast?.framework?.CastReceiverContext);
-
-    window.__onGCastApiAvailable = (isAvailable: boolean) => {
-      previousCallback?.(isAvailable);
-      if (isAvailable && isFrameworkReady()) {
-        completeResolve();
-      } else if (!isAvailable) {
-        completeReject(new Error('Cast receiver framework is unavailable.'));
-      }
-    };
-
-    const timeoutId = setTimeout(() => {
-      if (isFrameworkReady()) {
-        completeResolve();
-        return;
-      }
-
-      completeReject(new Error('Timed out while waiting for Cast receiver framework to initialize.'));
-    }, 8000);
-
-    const existing = document.querySelector<HTMLScriptElement>('script[src*="cast_receiver_framework.js"]');
-    if (existing) {
-      if (isFrameworkReady()) {
-        completeResolve();
-        return;
-      }
-
-      existing.addEventListener(
-        'load',
-        () => {
-          if (isFrameworkReady()) {
-            completeResolve();
-            return;
-          }
-
-          completeReject(new Error('Cast receiver framework script loaded but CAF is unavailable.'));
-        },
-        { once: true }
-      );
-      existing.addEventListener('error', () => completeReject(new Error('Failed to load Cast receiver framework')), { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.async = true;
-    script.defer = true;
-    script.src = CAST_RECEIVER_SCRIPT_URL;
-    script.addEventListener(
-      'load',
-      () => {
-        if (isFrameworkReady()) {
-          completeResolve();
-          return;
-        }
-
-        completeReject(new Error('Cast receiver framework script loaded but CAF is unavailable.'));
-      },
-      { once: true }
-    );
-    script.addEventListener('error', () => completeReject(new Error('Failed to load Cast receiver framework')), { once: true });
-    document.head.appendChild(script);
-  });
-}
-
+/**
+ * Main CAF Web Receiver component.
+ *
+ * Bootstraps the Google Cast Application Framework (CAF v3), wires all player
+ * lifecycle events, and delegates domain concerns to focused service classes.
+ *
+ * Responsibilities:
+ * - Load the CAF receiver framework script on init
+ * - Fetch receiver configuration and propagate feature flags to tracking
+ * - Wire CAF system events (SENDER_CONNECTED/DISCONNECTED)
+ * - Intercept LOAD messages to resolve playback via {@link PlaybackResolver}
+ * - Handle custom-channel session updates via {@link SessionManager}
+ * - Drive subtitle track activation after {@link EventType.PLAYER_LOAD_COMPLETE}
+ * - Advance the queue when playback ends
+ * - Suppress CAF break overlay UI via {@link BreakUISuppressor}
+ */
 @Component({
   selector: 'app-receiver-page',
   imports: [CommonModule],
   templateUrl: './receiver-page.component.html',
   styleUrl: './receiver-page.component.scss',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  providers: [
+    { provide: 'PAGE_ENDPOINT_BASE_URL', useValue: environment.receiver.pageEndpointBaseUrl },
+    { provide: 'VIDEO_ENDPOINT_BASE_URL', useValue: environment.receiver.videoEndpointBaseUrl },
+    { provide: 'VIDEO_ENDPOINT_DEVICE', useValue: environment.receiver.videoEndpointDevice },
+  ],
 })
-export class ReceiverPageComponent implements OnInit, OnDestroy {
+export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
+  /** CAF framework script URL for dynamic bootstrapping. */
+  private readonly castReceiverScriptUrl = environment.receiver.castReceiverScriptUrl;
+  /** Throttle interval for noisy debug overlay events. */
+  private readonly debugEventThrottleMs = environment.receiver.debugEventThrottleMs;
+  /** Enables/disables debug overlay rendering. */
+  private readonly showDebugOverlayEnabled = environment.receiver.showDebugOverlay;
+  /** URL for receiver config bootstrap API. */
+  private readonly configEndpointUrl = environment.receiver.configEndpointUrl;
+  /** Custom namespace for sender/receiver custom channel messages. */
+  private readonly customNamespace = environment.receiver.customNamespace;
+
+  /** Semantic version displayed in the debug overlay. */
   protected readonly appVersion = signal('0.0.24');
-  protected readonly showDebugOverlay = SHOW_DEBUG_OVERLAY;
+  /** Controls whether the debug overlay panel is rendered. */
+  protected readonly showDebugOverlay = this.showDebugOverlayEnabled;
+  /** Primary content title shown in the receiver UI. */
   protected readonly title = signal('Waiting for content');
+  /** Secondary subtitle shown beneath the title. */
   protected readonly subtitle = signal('Idle');
+  /** Fatal error message surfaced to the debug overlay. */
   protected readonly receiverError = signal<string | null>(null);
+  /** High-level receiver UI state driving template visibility. */
   protected readonly uiState = signal<ReceiverUiState>('awaiting-cast');
+  /** True once at least one Cast sender has connected this session. */
   protected readonly hasSenderConnected = signal(false);
+  /** Queue playback status string passed through from the sender payload. */
   protected readonly queueStatus = signal<string>('idle');
+  /** True while the player is in PLAYING, BUFFERING, or LOADING state. */
   protected readonly isPlaying = signal(false);
-  protected readonly skipUiState = signal<SkipUiState>('idle');
-  protected readonly currentTimeSec = signal(0);
-  protected readonly durationSec = signal(0);
-  protected readonly nextItemTitle = signal<string | null>(null);
-  protected readonly nextItemThumbnail = signal<string | null>(null);
-  protected readonly showNextUp = signal(false);
+  /** Raw receiver config response stored for debug inspection. */
   protected readonly configResponse = signal<unknown | null>(null);
+  /** Timestamped log entries shown in the debug overlay (max 200). */
   protected readonly logs = signal<string[]>([]);
+  /** Detailed debug state object rendered in the debug overlay. */
   protected readonly debugState = signal<ReceiverDebugState>({
     path: null,
     pageUrl: null,
@@ -228,430 +96,59 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     lastEvent: null,
     lastError: null,
     skipTimeCode: null,
-    skipLastMsg: null,
-    skipSeekable: null,
-    skipApis: null,
-    skipStatus: null,
-    skipTarget: null,
   });
 
+  /** All queue items received from the last LOAD message. */
   private storedQueueItems: any[] = [];
+  /** ID of the currently active queue item, used to advance to the next item. */
   private storedActiveItemId: string | null = null;
+  /** Epoch timestamp of the last debug overlay event (used for throttling). */
   private lastDebugOverlayEventAt = 0;
+  /** Last event string written to the debug overlay (deduplication guard). */
   private lastDebugOverlayEvent: string | null = null;
+  /** Track IDs pending activation after PLAYER_LOAD_COMPLETE. */
   private pendingSubtitleTrackIds: number[] = [];
+  /** Whether subtitles should be auto-activated after load. */
   private pendingSubtitlesEnabled = false;
-  private activeSkipTimeCode: NormalizedTimeCode | null = null;
-  private activeSkipTargetSec: number | null = null;
-  private lastSkipAvailabilityVisible: boolean | null = null;
-  private readonly connectedSenderIds = new Set<string>();
-  private sessionContext: ReceiverSessionContext = {
-    accessToken: null,
-    idToken: null,
-    segments: [],
-    anonymousId: null,
-  };
+  /** setInterval handle for the shadow-root break UI watcher. */
+  private breakInfoHideIntervalId: number | null = null;
+  /** MutationObserver watching the player shadow root for break UI changes. */
+  private breakInfoObserver: MutationObserver | null = null;
+  /** The last observed player shadow root (used to detect root replacement). */
+  private observedPlayerShadowRoot: ShadowRoot | null = null;
+  /** Coordinates Segment and NPAW tracking across the playback lifecycle. */
+  private readonly trackingManager = new TrackingManager({
+    appName: 'DRTV_chromecast',
+    appVersion: this.appVersion(),
+    isPreprod: typeof window !== 'undefined' && /test|preprod/i.test(window.location.hostname),
+  });
+  /** Parsed HLS manifest metadata; replaced on each LOAD to reset live offset. */
+  private manifestInfo = new ManifestInfo();
 
-  private parseSessionUpdateMessage(data: unknown): CastSessionUpdateMessage | null {
-    let candidate = data;
+  constructor(
+    private readonly sessionManager: SessionManager,
+    private readonly configLoader: ConfigLoader,
+    private readonly playbackResolver: PlaybackResolver,
+    private readonly playbackDataMapper: PlaybackDataMapper,
+    private readonly breakUISuppressor: BreakUISuppressor,
+    private readonly receiverLogger: ReceiverLogger,
+    private readonly playbackConfigService: PlaybackConfigService,
+  ) {}
 
-    if (typeof candidate === 'string') {
-      try {
-        candidate = JSON.parse(candidate);
-      } catch {
-        return null;
-      }
-    }
-
-    if (!candidate || typeof candidate !== 'object') {
-      return null;
-    }
-
-    const message = candidate as Partial<CastSessionUpdateMessage>;
-    if (message.type !== 'sessionUpdate') {
-      return null;
-    }
-
-    if (typeof message.auth?.accessToken !== 'string' || typeof message.auth?.idToken !== 'string') {
-      return null;
-    }
-
-    if (!Array.isArray(message.segments) || !message.segments.every((segment) => typeof segment === 'string')) {
-      return null;
-    }
-
-    if (typeof message.tracking?.anonymousId !== 'string') {
-      return null;
-    }
-
-    return {
-      type: 'sessionUpdate',
-      auth: {
-        accessToken: message.auth.accessToken,
-        idToken: message.auth.idToken,
-      },
-      segments: [...message.segments],
-      tracking: {
-        anonymousId: message.tracking.anonymousId,
-      },
-    };
-  }
-
-  private parseSkipTimeCodeMessage(data: unknown): CastSkipTimeCodeMessage | null {
-    let candidate = data;
-
-    if (typeof candidate === 'string') {
-      try {
-        candidate = JSON.parse(candidate);
-      } catch {
-        return null;
-      }
-    }
-
-    if (!candidate || typeof candidate !== 'object') {
-      return null;
-    }
-
-    const message = candidate as Partial<CastSkipTimeCodeMessage>;
-    if (message.type !== 'skipTimeCode' || typeof message.timeCodeType !== 'string' || !message.timeCodeType.trim()) {
-      return null;
-    }
-
-    return {
-      type: 'skipTimeCode',
-      timeCodeType: message.timeCodeType.trim(),
-    };
-  }
-
-  private toNormalizedTimeCode(timeCode: TimeCodes): NormalizedTimeCode | null {
-    if (!timeCode || typeof timeCode.timeCodeType !== 'string' || typeof timeCode.startTime !== 'number') {
-      return null;
-    }
-
-    const rawStart = timeCode.startTime;
-    const rawEnd = typeof timeCode.endTime === 'number' ? timeCode.endTime : rawStart;
-    const rawDuration = typeof timeCode.duration === 'number' ? timeCode.duration : rawEnd - rawStart;
-    const looksLikeMilliseconds = rawDuration > 1000 || rawEnd - rawStart > 1000;
-    const unit = looksLikeMilliseconds ? 1000 : 1;
-
-    const startTime = rawStart / unit;
-    const duration = Math.max(0, rawDuration / unit);
-    const endTime = rawEnd > rawStart ? rawEnd / unit : startTime + duration;
-
-    if (!isFinite(startTime) || !isFinite(endTime) || endTime <= startTime) {
-      return null;
-    }
-
-    return {
-      startTime,
-      endTime,
-      duration: duration > 0 ? duration : endTime - startTime,
-      timeCodeType: timeCode.timeCodeType,
-    };
-  }
-
-  private buildSkipAvailabilityMessage(visible: boolean): CastTimeCodeAvailabilityMessage {
-    const active = this.activeSkipTimeCode;
-    return {
-      type: 'timeCodeAvailability',
-      visible,
-      timeCodeType: active?.timeCodeType ?? SKIP_TIME_CODE_TYPE,
-      startTime: active?.startTime ?? 0,
-      endTime: active?.endTime ?? 0,
-      duration: active?.duration ?? 0,
-    };
-  }
-
-  private refreshConnectedSenderIds(context: any): void {
-    const senders = context?.getSenders?.();
-    if (!Array.isArray(senders)) {
-      return;
-    }
-
-    for (const senderId of senders) {
-      if (typeof senderId === 'string' && senderId.trim()) {
-        this.connectedSenderIds.add(senderId);
-      }
-    }
-  }
-
-  private broadcastCustomMessageToSenders(payload: CastTimeCodeAvailabilityMessage): void {
-    const context = window.cast?.framework?.CastReceiverContext?.getInstance?.();
-    if (!context?.sendCustomMessage) {
-      return;
-    }
-
-    this.refreshConnectedSenderIds(context);
-
-    if (this.connectedSenderIds.size === 0) {
-      try {
-        // Fallback broadcast when sender IDs are not exposed by this runtime.
-        context.sendCustomMessage(DR_TV_CUSTOM_NAMESPACE, undefined, payload);
-      } catch {
-        // Ignore sender-specific channel failures.
-      }
-      return;
-    }
-
-    for (const senderId of this.connectedSenderIds) {
-      try {
-        context.sendCustomMessage(DR_TV_CUSTOM_NAMESPACE, senderId, payload);
-      } catch {
-        // Ignore sender-specific channel failures and keep broadcasting to remaining senders.
-      }
-    }
-  }
-
-  private updateSkipAvailabilityForCurrentTime(currentTimeSec: number): void {
-    const active = this.activeSkipTimeCode;
-    if (!active) {
-      if (this.lastSkipAvailabilityVisible === false) {
-        return;
-      }
-
-      this.lastSkipAvailabilityVisible = false;
-      this.broadcastCustomMessageToSenders(this.buildSkipAvailabilityMessage(false));
-      this.recordReceiverEvent('timeCodeAvailability sent', `hidden (${SKIP_TIME_CODE_TYPE})`);
-      return;
-    }
-
-    const endTime = active.endTime;
-    const shouldShow = isFinite(currentTimeSec)
-      && currentTimeSec >= active.startTime
-      && currentTimeSec < endTime;
-
-    if (this.lastSkipAvailabilityVisible === shouldShow) {
-      return;
-    }
-
-    this.lastSkipAvailabilityVisible = shouldShow;
-    this.broadcastCustomMessageToSenders(this.buildSkipAvailabilityMessage(shouldShow));
-    this.recordReceiverEvent('timeCodeAvailability sent', `${shouldShow ? 'visible' : 'hidden'} (${active.timeCodeType})`);
-  }
-
-  private clearSkipTimeCodeState(): void {
-    this.activeSkipTimeCode = null;
-    this.activeSkipTargetSec = null;
-    this.skipUiState.set('idle');
-    this.lastSkipAvailabilityVisible = null;
-    this.broadcastCustomMessageToSenders(this.buildSkipAvailabilityMessage(false));
-    this.updateDebugState({ skipStatus: 'idle', skipTarget: null });
-  }
-
-  private resolveMediaElement(playerManager: any): HTMLVideoElement | null {
-    // playerManager.getMediaElement() returns null with cast-media-player.
-    // Try direct query first, then shadow DOM of the cast-media-player element.
-    const direct = playerManager?.getMediaElement?.() as HTMLVideoElement | null;
-    if (direct) {
-      return direct;
-    }
-
-    const byClass = document.querySelector<HTMLVideoElement>('.castMediaElement');
-    if (byClass) {
-      return byClass;
-    }
-
-    const castPlayer = document.querySelector('cast-media-player');
-    const shadow = castPlayer?.shadowRoot?.querySelector<HTMLVideoElement>('video');
-    return shadow ?? null;
-  }
-
-  private getPlaybackPositionSec(playerManager: any): number {
-    const managerPos = playerManager?.getCurrentTimeSec?.();
-
-    if (typeof managerPos === 'number' && isFinite(managerPos)) {
-      return managerPos;
-    }
-
-    const mediaElement = this.resolveMediaElement(playerManager);
-    if (mediaElement && isFinite(mediaElement.currentTime)) {
-      return mediaElement.currentTime;
-    }
-
-    return 0;
-  }
-
-  private forceLoadCurrentMediaAtTime(playerManager: any, targetSec: number): boolean {
-    try {
-      const messages = window.cast?.framework?.messages;
-      const LoadRequestDataCtor = messages?.LoadRequestData;
-      const mediaInfo = playerManager?.getMediaInformation?.();
-      if (typeof LoadRequestDataCtor !== 'function' || !mediaInfo || typeof playerManager?.load !== 'function') {
-        return false;
-      }
-
-      const loadRequest = new LoadRequestDataCtor();
-      loadRequest.media = mediaInfo;
-      loadRequest.currentTime = Math.max(0, targetSec);
-      loadRequest.autoplay = true;
-
-      const activeTrackIds = playerManager?.getTextTracksManager?.()?.getActiveIds?.();
-      if (Array.isArray(activeTrackIds) && activeTrackIds.length > 0) {
-        loadRequest.activeTrackIds = [...activeTrackIds];
-      }
-
-      playerManager.load(loadRequest);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  private attemptSeekToTime(playerManager: any, targetSec: number, attempt = 0, allowForceReload = true): void {
-    const clampedTargetSec = Math.max(0, targetSec);
-    const mediaElement = this.resolveMediaElement(playerManager);
-
-    console.log(`[SKIP-DBG] attempt=${attempt} target=${clampedTargetSec} mediaElement=${!!mediaElement} seekFn=${typeof playerManager?.seek}`);
-    if (mediaElement) {
-      const seekable = mediaElement.seekable;
-      const ranges: string[] = [];
-      for (let i = 0; i < seekable.length; i++) { ranges.push(`${seekable.start(i).toFixed(1)}-${seekable.end(i).toFixed(1)}`); }
-      const seekableStr = `[${ranges.join(', ')}] pos=${mediaElement.currentTime.toFixed(1)}`;
-      console.log(`[SKIP-DBG] seekable ranges: ${seekableStr}`);
-      this.updateDebugState({ skipSeekable: seekableStr });
-    } else {
-      this.updateDebugState({ skipSeekable: 'no mediaElement' });
-    }
-
-    try {
-      const SeekRequestDataCtor = window.cast?.framework?.messages?.SeekRequestData;
-      const ResumeState = window.cast?.framework?.messages?.ResumeState;
-      const cafAvailable = typeof playerManager?.seek === 'function' && typeof SeekRequestDataCtor === 'function';
-      const apisStr = `cafSeek=${cafAvailable} SeekData=${typeof SeekRequestDataCtor}`;
-      console.log(`[SKIP-DBG] cafAvailable=${cafAvailable}`);
-      this.updateDebugState({ skipApis: apisStr });
-
-      if (cafAvailable) {
-        // Use CAF-native seek exclusively — do NOT also set mediaElement.currentTime.
-        // Doing both causes CAF to undo the direct manipulation while its own async seek is in flight.
-        const seekRequestData = new SeekRequestDataCtor();
-        seekRequestData.currentTime = clampedTargetSec;
-        if (ResumeState?.PLAYBACK_START) {
-          seekRequestData.resumeState = ResumeState.PLAYBACK_START;
-        }
-        playerManager.seek(seekRequestData);
-        console.log('[SKIP-DBG] playerManager.seek() called');
-        this.updateDebugState({ skipStatus: `CAF seek called -> ${clampedTargetSec.toFixed(1)}s` });
-      } else if (mediaElement) {
-        // Only fall back to direct element seek when CAF seek is not available.
-        mediaElement.currentTime = clampedTargetSec;
-        const nowAfter = mediaElement.currentTime.toFixed(1);
-        console.log(`[SKIP-DBG] elem seek ${clampedTargetSec} now=${nowAfter}`);
-        this.updateDebugState({ skipStatus: `elem seek -> ${clampedTargetSec.toFixed(1)} now=${nowAfter}` });
-        const playResult = mediaElement.play?.();
-        if (playResult && typeof (playResult as Promise<void>).catch === 'function') {
-          void (playResult as Promise<void>).catch(() => undefined);
-        }
-      } else {
-        console.warn('[SKIP-DBG] no seek API available');
-        this.updateDebugState({ skipStatus: 'no seek API available' });
-      }
-    } catch (err) {
-      console.warn('[SKIP-DBG] seek threw:', err);
-      this.updateDebugState({ skipStatus: `seek threw: ${String(err)}` });
-    }
-
-    const currentPos = this.getPlaybackPositionSec(playerManager);
-    const isApplied = Math.abs(currentPos - clampedTargetSec) <= 0.75;
-    this.updateDebugState({ skipStatus: `attempt ${attempt}: pos=${currentPos.toFixed(1)} target=${clampedTargetSec.toFixed(1)} applied=${isApplied}` });
-    if (isApplied) {
-      this.currentTimeSec.set(clampedTargetSec);
-      this.activeSkipTargetSec = clampedTargetSec;
-      this.updateSkipAvailabilityForCurrentTime(clampedTargetSec);
-      this.recordReceiverEvent('Skip applied', `${clampedTargetSec.toFixed(1)}s`);
-      this.updateDebugState({ skipStatus: `DONE -> ${clampedTargetSec.toFixed(1)}s` });
-      return;
-    }
-
-    if (attempt >= 8) {
-      if (allowForceReload) {
-        const reloaded = this.forceLoadCurrentMediaAtTime(playerManager, clampedTargetSec);
-        if (reloaded) {
-          this.recordReceiverEvent('Skip fallback', `Force reload at ${clampedTargetSec.toFixed(1)}s`);
-          this.updateDebugState({ skipStatus: `fallback reload -> ${clampedTargetSec.toFixed(1)}s` });
-          setTimeout(() => this.attemptSeekToTime(playerManager, clampedTargetSec, 0, false), 900);
-          return;
-        }
-      }
-
-      this.recordReceiverEvent(
-        'Skip failed',
-        `Position stayed at ${currentPos.toFixed(1)}s after target ${clampedTargetSec.toFixed(1)}s`
-      );
-      this.updateDebugState({ skipStatus: `FAILED: stuck at ${currentPos.toFixed(1)}s`, skipTarget: null });
-      this.skipUiState.set('idle');
-      this.activeSkipTargetSec = null;
-      return;
-    }
-
-    setTimeout(() => this.attemptSeekToTime(playerManager, clampedTargetSec, attempt + 1, allowForceReload), 250);
-  }
-
-  private handleSkipTimeCodeRequest(message: CastSkipTimeCodeMessage, playerManager: any): void {
-    const active = this.activeSkipTimeCode;
-    console.log('[SKIP-DBG] handleSkipTimeCodeRequest active=', JSON.stringify(active), 'msg=', JSON.stringify(message));
-    this.updateDebugState({ skipStatus: `active=${JSON.stringify(active)?.slice(0, 80)}` });
-    if (!active || active.timeCodeType.toLowerCase() !== message.timeCodeType.toLowerCase()) {
-      this.recordReceiverEvent('Skip ignored', `No active ${message.timeCodeType} timeCode`);
-      this.updateDebugState({ skipStatus: `ignored: no active ${message.timeCodeType}` });
-      return;
-    }
-
-    const fallbackEndTime = active.startTime + Math.max(0, active.duration);
-    const targetTimeSec = isFinite(active.endTime) && active.endTime > active.startTime
-      ? active.endTime
-      : fallbackEndTime;
-    console.log('[SKIP-DBG] targetTimeSec=', targetTimeSec);
-    this.updateDebugState({ skipStatus: `target=${targetTimeSec.toFixed(1)}s` });
-    if (!isFinite(targetTimeSec) || targetTimeSec <= 0) {
-      this.recordReceiverEvent('Skip failed', 'Target time is invalid');
-      this.updateDebugState({ skipStatus: 'FAIL: invalid target' });
-      return;
-    }
-
-    this.activeSkipTargetSec = targetTimeSec;
-    this.skipUiState.set('seeking');
-    this.updateDebugState({ skipTarget: `${targetTimeSec.toFixed(1)}s` });
-    this.recordReceiverEvent('Skip requested', `${message.timeCodeType} -> ${targetTimeSec.toFixed(1)}s`);
-    this.attemptSeekToTime(playerManager, targetTimeSec, 0);
-  }
-
-  private applySessionUpdate(message: CastSessionUpdateMessage): void {
-    this.sessionContext = {
-      accessToken: message.auth.accessToken,
-      idToken: message.auth.idToken,
-      segments: [...message.segments],
-      anonymousId: message.tracking.anonymousId,
-    };
-
-    const maskToken = (token: string): string => {
-      if (token.length <= 12) {
-        return token;
-      }
-
-      return `${token.slice(0, 6)}...${token.slice(-4)}`;
-    };
-
-    this.updateDebugState({
-      sessionAccessToken: maskToken(message.auth.accessToken),
-      sessionIdToken: maskToken(message.auth.idToken),
-      sessionSegments: [...message.segments],
-      sessionAnonymousId: message.tracking.anonymousId,
-      sessionUpdatedAt: new Date().toISOString(),
-    });
-
-    this.recordReceiverEvent(
-      'Session updated',
-      `segments=${message.segments.length} anonymousId=${message.tracking.anonymousId}`,
-    );
-  }
-
+  /**
+   * Initialises the receiver:
+   * 1. Fetches receiver configuration and updates tracking feature flags.
+   * 2. Loads the CAF Web Receiver framework script.
+   * 3. Wires all CAF event listeners and message interceptors.
+   */
   async ngOnInit(): Promise<void> {
     this.pushLog('Receiver booting');
     this.receiverError.set(null);
     try {
-      await this.loadConfigResponse();
-      await loadReceiverFramework();
+      await this.configLoader.loadConfig(this.configEndpointUrl);
+      const configJson = this.configLoader.getConfigResponse();
+      this.trackingManager.updateFeatureFlags(this.configLoader.extractTrackingFeatureFlags(configJson));
+      await this.loadReceiverFramework();
       this.pushLog('CAF framework loaded');
       this.initializeReceiver();
     } catch (err: any) {
@@ -662,17 +159,191 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  ngOnDestroy(): void {
-    // no-op
+  /** Loads the CAF receiver framework script if it is not already available. */
+  private loadReceiverFramework(): Promise<void> {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return Promise.reject(new Error('Cast receiver framework requires a browser environment.'));
+    }
+
+    if (window.cast?.framework?.CastReceiverContext) {
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const previousCallback = window.__onGCastApiAvailable;
+      const completeResolve = (): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeoutId);
+        window.__onGCastApiAvailable = previousCallback;
+        resolve();
+      };
+
+      const completeReject = (error: Error): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeoutId);
+        window.__onGCastApiAvailable = previousCallback;
+        reject(error);
+      };
+
+      const isFrameworkReady = (): boolean => Boolean(window.cast?.framework?.CastReceiverContext);
+
+      window.__onGCastApiAvailable = (isAvailable: boolean) => {
+        previousCallback?.(isAvailable);
+        if (isAvailable && isFrameworkReady()) {
+          completeResolve();
+        } else if (!isAvailable) {
+          completeReject(new Error('Cast receiver framework is unavailable.'));
+        }
+      };
+
+      const timeoutId = setTimeout(() => {
+        if (isFrameworkReady()) {
+          completeResolve();
+          return;
+        }
+
+        completeReject(new Error('Timed out while waiting for Cast receiver framework to initialize.'));
+      }, 8000);
+
+      const existing = document.querySelector<HTMLScriptElement>('script[src*="cast_receiver_framework.js"]');
+      if (existing) {
+        if (isFrameworkReady()) {
+          completeResolve();
+          return;
+        }
+
+        existing.addEventListener(
+          'load',
+          () => {
+            if (isFrameworkReady()) {
+              completeResolve();
+              return;
+            }
+
+            completeReject(new Error('Cast receiver framework script loaded but CAF is unavailable.'));
+          },
+          { once: true }
+        );
+        existing.addEventListener('error', () => completeReject(new Error('Failed to load Cast receiver framework')), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.async = true;
+      script.defer = true;
+      script.src = this.castReceiverScriptUrl;
+      script.addEventListener(
+        'load',
+        () => {
+          if (isFrameworkReady()) {
+            completeResolve();
+            return;
+          }
+
+          completeReject(new Error('Cast receiver framework script loaded but CAF is unavailable.'));
+        },
+        { once: true }
+      );
+      script.addEventListener('error', () => completeReject(new Error('Failed to load Cast receiver framework')), { once: true });
+      document.head.appendChild(script);
+    });
   }
 
+  /** Cleans up the break UI watcher interval and destroys the tracking manager. */
+  ngOnDestroy(): void {
+    this.stopBreakInfoHider();
+    this.trackingManager.destroy();
+  }
+
+  /** Starts the break UI watcher after the view is initialised. */
+  ngAfterViewInit(): void {
+    this.startBreakInfoHider();
+  }
+
+  /**
+   * Starts a 500 ms polling interval that finds the CAF player shadow root and
+   * attaches a {@link MutationObserver} to suppress break UI on every DOM change.
+   */
+  private startBreakInfoHider(): void {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    if (this.breakInfoHideIntervalId !== null) {
+      window.clearInterval(this.breakInfoHideIntervalId);
+      this.breakInfoHideIntervalId = null;
+    }
+
+    const syncShadowRootWatcher = (): void => {
+      const player = document.getElementById('player');
+      const shadowRoot = (player as HTMLElement | null)?.shadowRoot ?? null;
+
+      if (!shadowRoot) {
+        return;
+      }
+
+      if (this.observedPlayerShadowRoot !== shadowRoot) {
+        this.breakInfoObserver?.disconnect();
+        this.observedPlayerShadowRoot = shadowRoot;
+        this.breakInfoObserver = new MutationObserver(() => {
+          this.hideBreakInfoInShadowRoot(shadowRoot);
+        });
+        this.breakInfoObserver.observe(shadowRoot, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['class', 'style'],
+        });
+      }
+
+      this.hideBreakInfoInShadowRoot(shadowRoot);
+    };
+
+    syncShadowRootWatcher();
+    this.breakInfoHideIntervalId = window.setInterval(syncShadowRootWatcher, 500);
+  }
+
+  /** Clears the break UI polling interval and disconnects the MutationObserver. */
+  private stopBreakInfoHider(): void {
+    if (typeof window !== 'undefined' && this.breakInfoHideIntervalId !== null) {
+      window.clearInterval(this.breakInfoHideIntervalId);
+    }
+
+    this.breakInfoHideIntervalId = null;
+    this.breakInfoObserver?.disconnect();
+    this.breakInfoObserver = null;
+    this.observedPlayerShadowRoot = null;
+  }
+
+  /**
+   * Delegates break UI suppression to {@link BreakUISuppressor}.
+   * Called by the shadow root watcher on every observed DOM mutation.
+   */
+  private hideBreakInfoInShadowRoot(shadowRoot: ShadowRoot): void {
+    this.breakUISuppressor.hideBreakUI(shadowRoot);
+  }
+
+  /**
+   * Derives the UI state from playback and sender-connection signals.
+   * State transitions: `awaiting-cast` → `connected-idle` → `playing`.
+   */
   private updateUiState(): void {
-    if (this.isPlaying()) {
+    const isPlaying = this.isPlaying();
+    const hasSenderConnected = this.hasSenderConnected();
+    
+    if (isPlaying) {
       this.uiState.set('playing');
       return;
     }
 
-    if (this.hasSenderConnected()) {
+    if (hasSenderConnected) {
       this.uiState.set('connected-idle');
       return;
     }
@@ -680,12 +351,25 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     this.uiState.set('awaiting-cast');
   }
 
+  /**
+   * Writes a timestamped message to both the {@link ReceiverLogger} and the
+   * local `logs` signal that drives the debug overlay.
+   *
+   * @param message - Plain-text message to record.
+   */
   private pushLog(message: string): void {
-    const entry = `[${new Date().toLocaleTimeString()}] ${message}`;
-    this.logs.update((current) => [entry, ...current].slice(0, 200));
-    console.log(message);
+    this.receiverLogger.log(message);
+    this.logs.update((current) => [
+      `[${new Date().toLocaleTimeString()}] ${message}`,
+      ...current
+    ].slice(0, 200));
   }
 
+  /**
+   * Merges a partial patch into the `debugState` signal.
+   *
+   * @param patch - Partial debug state to merge.
+   */
   private updateDebugState(patch: Partial<ReceiverDebugState>): void {
     this.debugState.update((current) => ({
       ...current,
@@ -693,6 +377,14 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     }));
   }
 
+  /**
+   * Logs a receiver event and conditionally updates the debug overlay.
+  * Noisy `CORE` and `DEBUG` events are throttled by {@link debugEventThrottleMs}.
+   * Consecutive identical events are de-duplicated.
+   *
+   * @param eventName - Short event label.
+   * @param details   - Optional detail string appended after a colon.
+   */
   private recordReceiverEvent(eventName: string, details?: string): void {
     const summary = details ? `${eventName}: ${details}` : eventName;
     this.pushLog(summary);
@@ -703,7 +395,7 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     const isNoisyEvent = summary.startsWith('CORE ') || summary.startsWith('DEBUG ');
     const now = Date.now();
-    if (isNoisyEvent && now - this.lastDebugOverlayEventAt < DEBUG_EVENT_THROTTLE_MS) {
+    if (isNoisyEvent && now - this.lastDebugOverlayEventAt < this.debugEventThrottleMs) {
       return;
     }
 
@@ -716,538 +408,97 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
     this.updateDebugState({ lastEvent: summary });
   }
 
-  private updateNextUpVisibility(currentTimeSec: number = this.currentTimeSec(), durationSec: number = this.durationSec()): void {
-    if (!this.nextItemTitle() || !this.nextItemThumbnail()) {
-      this.showNextUp.set(false);
-      return;
+  /**
+   * Maps a CAF player state string to the {@link TrackingPlayerState} union.
+   *
+   * @param playerState - Raw CAF player state (e.g. `'PLAYING'`).
+   * @returns Typed tracking player state, or `'UNKNOWN'` for unrecognised values.
+   */
+  private toTrackingPlayerState(playerState: string): TrackingPlayerState {
+    if (playerState === 'PLAYING') {
+      return 'PLAYING';
     }
 
-    if (!isFinite(durationSec) || durationSec <= 0) {
-      this.showNextUp.set(false);
-      return;
+    if (playerState === 'PAUSED') {
+      return 'PAUSED';
     }
 
-    const remainingSeconds = durationSec - currentTimeSec;
-    this.showNextUp.set(remainingSeconds >= 0 && remainingSeconds <= NEXT_UP_PREVIEW_SECONDS);
-  }
-
-  private async loadConfigResponse(): Promise<void> {
-    try {
-      this.pushLog('Fetching receiver config');
-      const response = await fetch(CONFIG_ENDPOINT_URL, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Config request failed with ${response.status}`);
-      }
-
-      const configJson = await response.json();
-      this.configResponse.set(configJson);
-      this.receiverError.set(null);
-      this.pushLog('Receiver config loaded');
-    } catch (error: any) {
-      this.configResponse.set(null);
-      this.pushLog('Receiver config fetch failed: ' + (error?.message ?? String(error)));
-    }
-  }
-
-  private buildPageUrl(path: string): string {
-    const query = new URLSearchParams({
-      device: 'chromecast',
-      ff: 'idp,ldp,rpt',
-      geoLocation: 'dk',
-      isDeviceAbroad: 'false',
-      item_detail_expand: 'all',
-      lang: 'da',
-      list_page_size: '24',
-      max_list_prefetch: '3',
-      path,
-      segments: 'drtv,optedin',
-      sub: 'Registered',
-      text_entry_format: 'html',
-    });
-
-    return `${PAGE_ENDPOINT_BASE_URL}?${query.toString()}`;
-  }
-
-  private buildVideoUrl(itemId: string): string {
-    const query = new URLSearchParams({
-      delivery: 'stream',
-      device: VIDEO_ENDPOINT_DEVICE,
-      ff: 'idp,ldp,rpt',
-      geoLocation: 'dk',
-      lang: 'da',
-      resolution: 'HD-1080',
-      sub: 'Registered',
-    });
-
-    return `${VIDEO_ENDPOINT_BASE_URL}/${encodeURIComponent(itemId)}/videos?${query.toString()}`;
-  }
-
-  private extractItemId(path: string, item: any): string | null {
-    const directId = item?.id;
-    if (typeof directId === 'string' && directId.trim()) {
-      return directId;
+    if (playerState === 'BUFFERING') {
+      return 'BUFFERING';
     }
 
-    const scopes = item?.scopes;
-    if (Array.isArray(scopes)) {
-      const scopedId = scopes.find((scope: unknown) => typeof scope === 'string' && /^\d+$/.test(scope));
-      if (typeof scopedId === 'string') {
-        return scopedId;
-      }
+    if (playerState === 'LOADING') {
+      return 'LOADING';
     }
 
-    const pathMatch = path.match(/_(\d+)$/);
-    return pathMatch?.[1] ?? null;
+    if (playerState === 'IDLE') {
+      return 'IDLE';
+    }
+
+    return 'UNKNOWN';
   }
 
-  private resolveMimeType(_mediaFile: MediaFile): string {
-    return 'application/x-mpegURL';
-  }
-
-  private getQueueItemRuntimeData(selectedItem: any, loadRequestData?: any): QueueItemRuntimeData {
-    const queueCustomData = selectedItem?.customData ?? {};
-    const mediaCustomData = loadRequestData?.media?.customData ?? {};
-
-    const rawPath = queueCustomData.path ?? mediaCustomData.path ?? selectedItem?.url ?? null;
-    const accessToken = queueCustomData.accessToken
-      ?? mediaCustomData.accessToken
-      ?? this.sessionContext.accessToken
-      ?? null;
-    const preferredAccessService = queueCustomData.preferredAccessService ?? mediaCustomData.preferredAccessService ?? null;
+  /**
+   * Builds a {@link TrackingPlaybackContext} from a resolved playback and the
+   * original queue item / LOAD request so tracking has all available metadata.
+   *
+   * @param resolvedPlayback - Stream resolution result.
+   * @param selectedItem     - Raw queue item from the sender payload.
+   * @param loadRequestData  - Full CAF LoadRequestData including customData.
+   */
+  private toTrackingPlaybackFromResolved(
+    resolvedPlayback: ResolvedPlayback,
+    selectedItem: any,
+    loadRequestData: any,
+  ): TrackingPlaybackContext {
+    const customData = loadRequestData?.customData ?? loadRequestData?.media?.customData ?? {};
 
     return {
-      path: typeof rawPath === 'string' ? rawPath : null,
-      accessToken: typeof accessToken === 'string' ? accessToken : null,
-      preferredAccessService: typeof preferredAccessService === 'string' ? preferredAccessService : null,
-    };
-  }
-
-  private applyResolvedPlaybackToLoadRequest(loadRequestData: any, resolvedPlayback: ResolvedPlayback): void {
-    if (!loadRequestData?.media) {
-      return;
-    }
-
-    loadRequestData.autoplay = true;
-    loadRequestData.media.contentId = resolvedPlayback.streamUrl;
-    loadRequestData.media.contentUrl = resolvedPlayback.streamUrl;
-    loadRequestData.media.contentType = resolvedPlayback.mimeType;
-    loadRequestData.media.streamType = 'BUFFERED';
-    this.updateDebugState({
+      itemId: resolvedPlayback.itemId ?? selectedItem?.id ?? null,
+      title: resolvedPlayback.title ?? selectedItem?.title,
+      subtitle: resolvedPlayback.subtitle ?? selectedItem?.subtitle,
       streamUrl: resolvedPlayback.streamUrl,
-      contentType: resolvedPlayback.mimeType,
-    });
-
-    const metadata = loadRequestData.media.metadata ?? {};
-    metadata.title = resolvedPlayback.title ?? metadata.title;
-    metadata.subtitle = resolvedPlayback.subtitle ?? metadata.subtitle;
-
-    if (resolvedPlayback.posterUrl) {
-      metadata.images = [{ url: resolvedPlayback.posterUrl }];
-    }
-
-    loadRequestData.media.metadata = metadata;
-    this.applyEmbeddedBreakMetadata(loadRequestData.media, resolvedPlayback.skipTimeCode ?? null);
-
-    const textTracks = resolvedPlayback.textTracks ?? [];
-    const subtitlesEnabled = resolvedPlayback.subtitlesEnabled === true;
-
-    if (textTracks.length) {
-      loadRequestData.media.tracks = textTracks;
-      this.pendingSubtitleTrackIds = textTracks
-        .map((track) => track?.trackId)
-        .filter((trackId): trackId is number => typeof trackId === 'number');
-      this.pendingSubtitlesEnabled = subtitlesEnabled;
-      loadRequestData.activeTrackIds = subtitlesEnabled && this.pendingSubtitleTrackIds.length > 0
-        ? [this.pendingSubtitleTrackIds[0]]
-        : [];
-    } else {
-      loadRequestData.media.tracks = [];
-      this.pendingSubtitleTrackIds = [];
-      this.pendingSubtitlesEnabled = false;
-      loadRequestData.activeTrackIds = [];
-    }
-  }
-
-  private applyEmbeddedBreakMetadata(media: any, skipTimeCode: NormalizedTimeCode | null): void {
-    if (!media) {
-      return;
-    }
-
-    if (!skipTimeCode) {
-      media.breakClips = [];
-      media.breaks = [];
-      return;
-    }
-
-    const messages = window.cast?.framework?.messages;
-    const BreakClipCtor = messages?.BreakClip;
-    const BreakCtor = messages?.Break;
-    const clipId = skipTimeCode.timeCodeType.trim().toLowerCase() || 'intro';
-    const breakId = `${clipId}-break`;
-    const duration = Math.max(0, skipTimeCode.duration);
-    const position = Math.max(0, skipTimeCode.startTime);
-
-    const breakClip = typeof BreakClipCtor === 'function'
-      ? new BreakClipCtor(clipId)
-      : { id: clipId };
-    breakClip.title = `Skip ${skipTimeCode.timeCodeType}`;
-    breakClip.duration = duration;
-    breakClip.whenSkippable = 0;
-    breakClip.embedded = true;
-
-    const breakData = typeof BreakCtor === 'function'
-      ? new BreakCtor(breakId, [clipId], position)
-      : { id: breakId, breakClipIds: [clipId], position };
-    breakData.duration = duration;
-    breakData.isEmbedded = true;
-    breakData.expanded = false;
-
-    media.breakClips = [breakClip];
-    media.breaks = [breakData];
-  }
-
-  private selectPlayableMediaFile(mediaFiles: MediaFile[], preferredAccessService: string | null = null): MediaFile | null {
-    const playableFiles = mediaFiles.filter((file) => !!file.url);
-
-    if (playableFiles.length === 0) {
-      return null;
-    }
-
-    if (preferredAccessService) {
-      const preferredCandidates = playableFiles.filter((file) => this.accessServiceMatches(file.accessService, preferredAccessService));
-      if (preferredCandidates.length > 0) {
-        return preferredCandidates.find((file) => file.format === 'video/hls') ?? preferredCandidates[0] ?? null;
-      }
-    }
-
-    const hlsFiles = playableFiles.filter((file) => file.format === 'video/hls');
-    const candidates = hlsFiles.length > 0 ? hlsFiles : playableFiles;
-
-    return candidates.find((file) => this.isStandardAccessService(file.accessService))
-      ?? candidates.find((file) => !this.isSpokenAccessService(file.accessService))
-      ?? candidates[0]
-      ?? null;
-  }
-
-  private normalizeAccessServiceName(accessService: string | null | undefined): string {
-    if (typeof accessService !== 'string') {
-      return '';
-    }
-
-    return accessService.trim().toLowerCase().replace(/[^a-z]/g, '');
-  }
-
-  private isSpokenAccessService(accessService: string | null | undefined): boolean {
-    const normalized = this.normalizeAccessServiceName(accessService);
-    return normalized.includes('spoken') && normalized.includes('subtitle');
-  }
-
-  private isStandardAccessService(accessService: string | null | undefined): boolean {
-    const normalized = this.normalizeAccessServiceName(accessService);
-    return normalized.includes('standard') && normalized.includes('video');
-  }
-
-  private accessServiceMatches(actual: string | null | undefined, preferred: string | null | undefined): boolean {
-    const normalizedActual = this.normalizeAccessServiceName(actual);
-    const normalizedPreferred = this.normalizeAccessServiceName(preferred);
-
-    if (!normalizedActual || !normalizedPreferred) {
-      return false;
-    }
-
-    if (this.isSpokenAccessService(normalizedPreferred)) {
-      return this.isSpokenAccessService(normalizedActual);
-    }
-
-    if (this.isStandardAccessService(normalizedPreferred)) {
-      return this.isStandardAccessService(normalizedActual);
-    }
-
-    return normalizedActual === normalizedPreferred;
-  }
-
-  private resolveSubtitleTrackSource(
-    mediaFiles: MediaFile[],
-    selectedFile: MediaFile,
-    preferredAccessService: string | null,
-  ): Array<Subtitles> | null | undefined {
-    if (Array.isArray(selectedFile.subtitles) && selectedFile.subtitles.length > 0) {
-      return selectedFile.subtitles;
-    }
-
-    const spokenCandidate = mediaFiles.find(
-      (file) => this.isSpokenAccessService(file.accessService) && Array.isArray(file.subtitles) && file.subtitles.length > 0,
-    );
-    if (spokenCandidate) {
-      return spokenCandidate.subtitles;
-    }
-
-    if (preferredAccessService && this.isStandardAccessService(preferredAccessService)) {
-      return null;
-    }
-
-    const fallbackCandidate = mediaFiles.find((file) => Array.isArray(file.subtitles) && file.subtitles.length > 0);
-    return fallbackCandidate?.subtitles;
-  }
-
-  private normalizeSubtitleMimeType(format: string | null | undefined): string {
-    if (typeof format !== 'string' || !format.trim()) {
-      return 'text/vtt';
-    }
-
-    return format.split(';')[0]?.trim() || 'text/vtt';
-  }
-
-  private normalizeSubtitleLanguage(language: string | null | undefined): string {
-    if (typeof language !== 'string' || !language.trim()) {
-      return 'da';
-    }
-
-    const normalized = language.trim();
-    if (/^[a-z]{2,3}(-[A-Za-z0-9]+)*$/i.test(normalized)) {
-      return normalized.toLowerCase();
-    }
-
-    if (/combined|hearing|caption/i.test(normalized)) {
-      return 'da';
-    }
-
-    return 'und';
-  }
-
-  private mapSubtitleSubtype(language: string | null | undefined): string {
-    return /combined|hearing|caption/i.test(language ?? '') ? 'CAPTIONS' : 'SUBTITLES';
-  }
-
-  private buildTextTracks(subtitles: Array<Subtitles> | null | undefined): any[] {
-    if (!Array.isArray(subtitles) || subtitles.length === 0) {
-      return [];
-    }
-
-    const messages = window.cast?.framework?.messages;
-    const TrackCtor = messages?.Track;
-    const TrackType = messages?.TrackType;
-
-    return subtitles
-      .filter((subtitle) => typeof subtitle?.link === 'string' && !!subtitle.link)
-      .map((subtitle, index) => {
-        const track = typeof TrackCtor === 'function'
-          ? new TrackCtor(index + 1, TrackType?.TEXT ?? 'TEXT')
-          : {
-              trackId: index + 1,
-              type: TrackType?.TEXT ?? 'TEXT',
-            };
-
-        track.trackId = track.trackId ?? index + 1;
-        track.trackContentId = subtitle.link;
-        track.trackContentType = this.normalizeSubtitleMimeType(subtitle.format);
-        track.language = this.normalizeSubtitleLanguage(subtitle.language);
-        track.name = subtitle.language || `Subtitle ${index + 1}`;
-        track.subtype = this.mapSubtitleSubtype(subtitle.language);
-        track.isInband = false;
-
-        return track;
-      });
-  }
-
-  private async resolvePlaybackFromQueueItem(item: any, loadRequestData?: any): Promise<ResolvedPlayback> {
-    const runtimeData = this.getQueueItemRuntimeData(item, loadRequestData);
-    const rawPath = runtimeData.path;
-    const accessToken = runtimeData.accessToken;
-    const preferredAccessService = runtimeData.preferredAccessService;
-    if (typeof rawPath !== 'string' || !rawPath.trim()) {
-      throw new Error('Queue item path is missing.');
-    }
-
-    const normalizedPath = rawPath.trim().startsWith('/') ? rawPath.trim() : `/${rawPath.trim()}`;
-    const pageUrl = this.buildPageUrl(normalizedPath);
-    this.updateDebugState({
-      path: normalizedPath,
-      pageUrl,
-      pageStatus: null,
-      itemId: null,
-      videoUrl: null,
-      videoStatus: null,
-      streamUrl: null,
-      contentType: null,
-      lastEvent: 'Resolving playback from queue item',
-      lastError: null,
-    });
-    this.pushLog(`Resolving page for path ${normalizedPath}`);
-    this.pushLog(`Page URL: ${pageUrl}`);
-
-    const pageResponse = await fetch(pageUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-
-    this.pushLog(`Page response status: ${pageResponse.status}`);
-  this.updateDebugState({ pageStatus: pageResponse.status });
-
-    if (!pageResponse.ok) {
-      throw new Error(`Page request failed with ${pageResponse.status}`);
-    }
-
-    const pageJson = await pageResponse.json();
-    const firstEntry = Array.isArray(pageJson?.entries) ? pageJson.entries[0] : null;
-    const pageItem = firstEntry?.item;
-    const itemId = this.extractItemId(normalizedPath, pageItem);
-    if (!itemId) {
-      throw new Error('Unable to resolve item id from page response.');
-    }
-
-    this.pushLog(`Resolved item id from page response: ${itemId}`);
-    this.updateDebugState({ itemId });
-
-    if (typeof accessToken !== 'string' || !accessToken.trim()) {
-      throw new Error('Missing accessToken for protected video endpoint.');
-    }
-
-    const videoUrl = this.buildVideoUrl(itemId);
-  this.updateDebugState({ videoUrl, videoStatus: null });
-    this.pushLog(`Fetching media stream for item ${itemId}`);
-    this.pushLog(`Video URL: ${videoUrl}`);
-    const videoResponse = await fetch(videoUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${accessToken.trim()}`,
-      },
-    });
-
-    this.pushLog(`Video response status: ${videoResponse.status}`);
-  this.updateDebugState({ videoStatus: videoResponse.status });
-
-    if (!videoResponse.ok) {
-      throw new Error(`Video request failed with ${videoResponse.status}`);
-    }
-
-    const mediaFiles = await videoResponse.json() as MediaFile[];
-    const primary = Array.isArray(mediaFiles) ? this.selectPlayableMediaFile(mediaFiles, preferredAccessService) : null;
-    const streamUrl = primary?.url;
-    if (typeof streamUrl !== 'string' || !streamUrl) {
-      throw new Error('No playable stream URL found in video response.');
-    }
-
-    const selectedAccessService = typeof primary?.accessService === 'string' ? primary.accessService : null;
-    const allTimeCodes = Array.isArray(mediaFiles)
-      ? mediaFiles.flatMap((file) => (Array.isArray(file?.timeCodes) ? file.timeCodes : []))
-      : [];
-    const skipTimeCode = allTimeCodes
-      .map((timeCode) => this.toNormalizedTimeCode(timeCode))
-      .find((timeCode) => timeCode?.timeCodeType.toLowerCase() === SKIP_TIME_CODE_TYPE.toLowerCase())
-      ?? null;
-    const subtitlesEnabled = this.isSpokenAccessService(preferredAccessService);
-    const subtitleSource = subtitlesEnabled
-      ? this.resolveSubtitleTrackSource(Array.isArray(mediaFiles) ? mediaFiles : [], primary, preferredAccessService)
-      : null;
-    const textTracks = subtitlesEnabled ? this.buildTextTracks(subtitleSource) : [];
-
-    this.pushLog(`Selected video URL from media file response: ${streamUrl}`);
-    this.pushLog(
-      `Selected accessService=${selectedAccessService ?? 'unknown'} preferred=${preferredAccessService ?? 'none'} subtitles=${subtitlesEnabled ? 'on' : 'off'} tracks=${textTracks.length}`
-    );
-    if (preferredAccessService && !this.accessServiceMatches(selectedAccessService, preferredAccessService)) {
-      this.pushLog(`Preferred accessService ${preferredAccessService} not found for item ${itemId}; fell back to ${selectedAccessService ?? 'unknown'}`);
-    }
-    this.updateDebugState({
-      streamUrl,
-      contentType: this.resolveMimeType(primary),
-    });
-
-    return {
-      streamUrl,
-      mimeType: this.resolveMimeType(primary),
-      title: firstEntry?.title ?? pageJson?.title ?? item?.title,
-      subtitle: pageItem?.episodeName ?? pageItem?.showName ?? item?.subtitle,
-      posterUrl: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl,
-      accessService: selectedAccessService,
-      subtitlesEnabled,
-      textTracks,
-      skipTimeCode,
+      mimeType: resolvedPlayback.mimeType,
+      durationSeconds: resolvedPlayback.durationSeconds,
+      isLive: resolvedPlayback.isLive,
+      profileId: typeof customData?.profileID === 'string' ? customData.profileID : undefined,
+      consents: Array.isArray(customData?.consents)
+        ? customData.consents.filter((consent: unknown): consent is string => typeof consent === 'string')
+        : undefined,
+      liveAbsoluteTimeSeconds: undefined,
+      senderDevice: typeof customData?.deviceType === 'string' ? customData.deviceType : undefined,
+      autoPlayReason: typeof customData?.autoPlayReason === 'string' ? customData.autoPlayReason : undefined,
     };
   }
 
-  private async resolveQueueItemPreview(item: any, loadRequestData?: any): Promise<QueueItemPreview> {
-    const runtimeData = this.getQueueItemRuntimeData(item, loadRequestData);
-    const rawPath = runtimeData.path;
-    if (typeof rawPath !== 'string' || !rawPath.trim()) {
-      return {
-        title: item?.title ?? null,
-        thumbnail: item?.posterUrl ?? null,
-      };
-    }
-
-    try {
-      const normalizedPath = rawPath.trim().startsWith('/') ? rawPath.trim() : `/${rawPath.trim()}`;
-      const pageUrl = this.buildPageUrl(normalizedPath);
-      const response = await fetch(pageUrl, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        return {
-          title: item?.title ?? null,
-          thumbnail: item?.posterUrl ?? null,
-        };
-      }
-
-      const pageJson = await response.json();
-      const firstEntry = Array.isArray(pageJson?.entries) ? pageJson.entries[0] : null;
-      const pageItem = firstEntry?.item;
-
-      return {
-        title: pageJson?.title ?? firstEntry?.title ?? null,
-        thumbnail: pageItem?.images?.tile ?? pageItem?.images?.wallpaper ?? pageItem?.images?.poster ?? item?.posterUrl ?? null,
-      };
-    } catch {
-      return {
-        title: item?.title ?? null,
-        thumbnail: item?.posterUrl ?? null,
-      };
-    }
-  }
-
+  /**
+   * Initialises the CAF CastReceiverContext, attaches all system/player event
+   * listeners, registers the LOAD message interceptor, and starts the receiver.
+   *
+   * Called once after the CAF framework script has loaded successfully.
+   */
   private initializeReceiver(): void {
     try {
       const context = window.cast.framework.CastReceiverContext.getInstance();
       const playerManager = context.getPlayerManager();
+      void this.trackingManager.initialize(playerManager);
+
+      const playbackConfig = this.playbackConfigService.createPlaybackConfig(this.manifestInfo);
+      const options = this.playbackConfigService.createReceiverOptions(playbackConfig, this.customNamespace);
+
       const MessageType = window.cast.framework.messages.MessageType;
       const eventCategory = window.cast?.framework?.events?.category;
 
       const systemEventType = window.cast?.framework?.system?.EventType;
       if (systemEventType?.SENDER_CONNECTED) {
-        context.addEventListener(systemEventType.SENDER_CONNECTED, (event: any) => {
-          const senderId = event?.senderId;
-          if (typeof senderId === 'string' && senderId.trim()) {
-            this.connectedSenderIds.add(senderId);
-          }
-          this.refreshConnectedSenderIds(context);
-
+        context.addEventListener(systemEventType.SENDER_CONNECTED, () => {
           this.hasSenderConnected.set(true);
           this.updateUiState();
           this.recordReceiverEvent('Sender connected');
-          this.updateSkipAvailabilityForCurrentTime(this.currentTimeSec());
         });
       }
       if (systemEventType?.SENDER_DISCONNECTED) {
-        context.addEventListener(systemEventType.SENDER_DISCONNECTED, (event: any) => {
-          const senderId = event?.senderId;
-          if (typeof senderId === 'string' && senderId.trim()) {
-            this.connectedSenderIds.delete(senderId);
-          }
-
+        context.addEventListener(systemEventType.SENDER_DISCONNECTED, () => {
           this.hasSenderConnected.set(false);
           this.updateUiState();
           this.recordReceiverEvent('Sender disconnected');
@@ -1269,26 +520,33 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         });
       }
 
-      context.addCustomMessageListener(DR_TV_CUSTOM_NAMESPACE, (event: any) => {
-        const senderId = event?.senderId;
-        if (typeof senderId === 'string' && senderId.trim()) {
-          this.connectedSenderIds.add(senderId);
-        }
-
-        console.log('[SKIP-DBG] custom message received', JSON.stringify(event?.data));
-        this.updateDebugState({ skipLastMsg: JSON.stringify(event?.data)?.slice(0, 120) });
-
-        const sessionUpdate = this.parseSessionUpdateMessage(event?.data);
+      context.addCustomMessageListener(this.customNamespace, (event: any) => {
+        const sessionUpdate = this.sessionManager.parseSessionUpdateMessage(event?.data);
         if (sessionUpdate) {
-          this.applySessionUpdate(sessionUpdate);
-          return;
-        }
+          this.sessionManager.updateSession(sessionUpdate);
+          const session = this.sessionManager.getSession();
+          
+          this.updateDebugState({
+            sessionAccessToken: this.sessionManager.maskToken(session.accessToken || ''),
+            sessionIdToken: this.sessionManager.maskToken(session.idToken || ''),
+            sessionSegments: [...session.segments],
+            sessionAnonymousId: session.anonymousId,
+            sessionUpdatedAt: new Date().toISOString(),
+          });
 
-        const skipMessage = this.parseSkipTimeCodeMessage(event?.data);
-        console.log('[SKIP-DBG] parseSkipTimeCodeMessage result', JSON.stringify(skipMessage));
-        this.updateDebugState({ skipLastMsg: `parsed: ${JSON.stringify(skipMessage)}` });
-        if (skipMessage) {
-          this.handleSkipTimeCodeRequest(skipMessage, playerManager);
+          this.recordReceiverEvent(
+            'Session updated',
+            `segments=${session.segments.length} anonymousId=${session.anonymousId}`,
+          );
+
+          void this.trackingManager.updateSession({
+            anonymousId: session.anonymousId || '',
+            accessToken: session.accessToken || '',
+            idToken: session.idToken || '',
+            profileId: undefined,
+            consents: undefined,
+            segments: [...session.segments],
+          });
           return;
         }
 
@@ -1296,6 +554,8 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       });
 
       playerManager.setMessageInterceptor(MessageType.LOAD, async (loadRequestData: any) => {
+        this.manifestInfo = new ManifestInfo();
+        this.trackingManager.onStop(playerManager.getCurrentTimeSec?.());
         this.hasSenderConnected.set(true);
         this.updateUiState();
         this.recordReceiverEvent('Received LOAD message');
@@ -1313,10 +573,6 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
           });
           this.pushLog('media JSON: ' + mediaJson.slice(0, 300));
         } catch { /* ignore */ }
-        this.nextItemTitle.set(null);
-        this.nextItemThumbnail.set(null);
-        this.clearSkipTimeCodeState();
-        this.showNextUp.set(false);
 
         try {
           const payload = loadRequestData?.customData?.queue ?? loadRequestData?.media?.customData?.queue ?? null;
@@ -1327,7 +583,30 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
             this.storedQueueItems = payload.items || [];
             if (selectedItem) {
               this.receiverError.set(null);
-              const resolvedPlayback = await this.resolvePlaybackFromQueueItem(selectedItem, loadRequestData);
+              
+              // Update debug state with path info before resolution
+              const rawPath = selectedItem?.url ?? selectedItem?.path;
+              const normalizedPath = (typeof rawPath === 'string' && rawPath.trim().startsWith('/')) 
+                ? rawPath.trim() 
+                : `/${typeof rawPath === 'string' ? rawPath.trim() : ''}`;
+              const pageUrl = new URL(environment.receiver.pageEndpointBaseUrl);
+              pageUrl.searchParams.set('path', normalizedPath);
+              this.updateDebugState({
+                path: normalizedPath,
+                pageUrl: pageUrl.toString(),
+                pageStatus: null,
+                itemId: null,
+                videoUrl: null,
+                videoStatus: null,
+                streamUrl: null,
+                contentType: null,
+                lastEvent: 'Resolving playback from queue item',
+                lastError: null,
+              });
+
+              this.pushLog(`Resolving page for path ${normalizedPath}`);
+              
+              const resolvedPlayback = await this.playbackResolver.resolve(selectedItem, null);
 
               this.storedActiveItemId = selectedItem.id;
               this.title.set(resolvedPlayback.title || selectedItem.title || 'Untitled');
@@ -1338,49 +617,58 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
                 selectedItem.posterUrl = resolvedPlayback.posterUrl;
               }
 
-              this.applyResolvedPlaybackToLoadRequest(loadRequestData, resolvedPlayback);
-              this.activeSkipTimeCode = resolvedPlayback.skipTimeCode ?? null;
-              this.lastSkipAvailabilityVisible = null;
-              this.updateSkipAvailabilityForCurrentTime(loadRequestData?.currentTime ?? 0);
-              this.updateDebugState({ skipTimeCode: this.activeSkipTimeCode ? `${this.activeSkipTimeCode.timeCodeType} ${this.activeSkipTimeCode.startTime}-${this.activeSkipTimeCode.endTime}s` : 'none' });
+              this.playbackDataMapper.applyToLoadRequest(loadRequestData, resolvedPlayback);
+              this.updateDebugState({
+                streamUrl: resolvedPlayback.streamUrl,
+                contentType: resolvedPlayback.mimeType,
+              });
+              this.trackingManager.onLoad(this.toTrackingPlaybackFromResolved(resolvedPlayback, selectedItem, loadRequestData));
+              this.updateDebugState({
+                skipTimeCode: resolvedPlayback.skipTimeCode
+                  ? `${resolvedPlayback.skipTimeCode.timeCodeType} ${resolvedPlayback.skipTimeCode.startTime}-${resolvedPlayback.skipTimeCode.endTime}s`
+                  : 'none',
+              });
               this.pushLog('Set contentUrl from resolved playback: ' + resolvedPlayback.streamUrl);
-
-              // Find and display next item
-              const selectedIndex = (payload.items || []).findIndex((i: any) => i.id === selectedItem.id);
-              const nextItem = selectedIndex >= 0 && selectedIndex < (payload.items || []).length - 1
-                ? payload.items[selectedIndex + 1]
-                : null;
-
-              if (nextItem) {
-                const nextItemPreview = await this.resolveQueueItemPreview(nextItem, loadRequestData);
-                this.nextItemTitle.set(nextItemPreview.title || 'Untitled');
-                this.nextItemThumbnail.set(nextItemPreview.thumbnail || nextItem.posterUrl || null);
-                nextItem.posterUrl = nextItemPreview.thumbnail || nextItem.posterUrl || null;
-                this.updateNextUpVisibility();
-                this.pushLog('Next item queued: ' + (nextItem.title || nextItem.id));
-              } else {
-                this.nextItemTitle.set(null);
-                this.nextItemThumbnail.set(null);
-                this.showNextUp.set(false);
-              }
             }
           } else if (loadRequestData?.media?.customData?.selectedItemTitle) {
             const t = loadRequestData.media.customData.selectedItemTitle;
             this.title.set(t || 'Untitled');
             this.subtitle.set(loadRequestData.media?.contentId || '');
             this.queueStatus.set('playing');
-            this.nextItemTitle.set(null);
-            this.nextItemThumbnail.set(null);
-            this.showNextUp.set(false);
             this.pushLog('Showing media.customData.selectedItemTitle: ' + t);
+            this.trackingManager.onLoad({
+              itemId: loadRequestData.media?.contentId,
+              title: t,
+              subtitle: loadRequestData.media?.contentId || undefined,
+              streamUrl: loadRequestData.media?.contentUrl,
+              mimeType: loadRequestData.media?.contentType,
+              isLive: loadRequestData.media?.streamType === 'LIVE',
+              profileId: typeof loadRequestData?.media?.customData?.profileID === 'string'
+                ? loadRequestData.media.customData.profileID
+                : undefined,
+              consents: Array.isArray(loadRequestData?.media?.customData?.consents)
+                ? loadRequestData.media.customData.consents.filter((consent: unknown): consent is string => typeof consent === 'string')
+                : undefined,
+            });
           } else if (loadRequestData?.media) {
             this.title.set(loadRequestData.media?.metadata?.title || 'Playing media');
             this.subtitle.set(loadRequestData.media?.metadata?.subtitle || loadRequestData.media?.contentId || '');
             this.queueStatus.set('playing');
-            this.nextItemTitle.set(null);
-            this.nextItemThumbnail.set(null);
-            this.showNextUp.set(false);
             this.pushLog('Showing media.metadata title');
+            this.trackingManager.onLoad({
+              itemId: loadRequestData.media?.contentId,
+              title: loadRequestData.media?.metadata?.title,
+              subtitle: loadRequestData.media?.metadata?.subtitle,
+              streamUrl: loadRequestData.media?.contentUrl,
+              mimeType: loadRequestData.media?.contentType,
+              isLive: loadRequestData.media?.streamType === 'LIVE',
+              profileId: typeof loadRequestData?.media?.customData?.profileID === 'string'
+                ? loadRequestData.media.customData.profileID
+                : undefined,
+              consents: Array.isArray(loadRequestData?.media?.customData?.consents)
+                ? loadRequestData.media.customData.consents.filter((consent: unknown): consent is string => typeof consent === 'string')
+                : undefined,
+            });
           }
         } catch (e: any) {
           const message = e?.message ?? String(e);
@@ -1394,9 +682,9 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
       });
 
       const EventType = window.cast.framework.events.EventType;
-      playerManager.addEventListener(EventType.ENDED, () => {
-        this.clearSkipTimeCodeState();
+      playerManager.addEventListener(EventType.ENDED, (event: any) => {
         this.recordReceiverEvent('Playback ended');
+        this.trackingManager.onCompleted(event?.currentMediaTime ?? playerManager.getCurrentTimeSec?.());
         this.onCurrentItemEnded(playerManager);
       });
       playerManager.addEventListener(EventType.ERROR, (event: any) => {
@@ -1408,38 +696,28 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
         this.pushLog(`PLAYBACK ERROR: code=${code}${reason ? ' reason=' + reason : ''}`);
       });
       playerManager.addEventListener(EventType.MEDIA_STATUS, (event: any) => {
-        const playerState = event?.mediaStatus?.playerState ?? 'unknown';
-        this.recordReceiverEvent('Player state', playerState);
-        this.updateDebugState({ playerState });
-        if (playerState === 'PLAYING') {
+        const enrichedStatus = enrichMediaStatus(event, playerManager, this.manifestInfo);
+
+        this.recordReceiverEvent('Player state', enrichedStatus.playerState);
+        this.updateDebugState({ playerState: enrichedStatus.playerState });
+        this.trackingManager.onPlayerState(
+          this.toTrackingPlayerState(enrichedStatus.playerState),
+          enrichedStatus.currentTime,
+          enrichedStatus.liveAbsoluteTime
+        );
+        if (enrichedStatus.playerState === 'PLAYING') {
           this.receiverError.set(null);
           this.updateDebugState({ lastError: null });
-          if (this.skipUiState() !== 'idle') {
-            const currentPos = playerManager.getCurrentTimeSec?.() ?? this.currentTimeSec();
-            const targetPos = this.activeSkipTargetSec ?? currentPos;
-            if (currentPos >= targetPos - 0.5) {
-              this.skipUiState.set('completed');
-              this.updateDebugState({ skipStatus: `completed @ ${currentPos.toFixed(1)}s` });
-              setTimeout(() => {
-                if (this.skipUiState() === 'completed') {
-                  this.skipUiState.set('idle');
-                  this.activeSkipTargetSec = null;
-                  this.updateDebugState({ skipTarget: null });
-                }
-              }, 600);
-            }
-          }
         }
-        this.isPlaying.set(playerState === 'PLAYING' || playerState === 'BUFFERING' || playerState === 'LOADING');
+        this.isPlaying.set(
+          enrichedStatus.playerState === 'PLAYING' ||
+            enrichedStatus.playerState === 'BUFFERING' ||
+            enrichedStatus.playerState === 'LOADING'
+        );
         this.updateUiState();
       });
-      playerManager.addEventListener(EventType.TIME_UPDATE, () => {
-        const current = playerManager.getCurrentTimeSec();
-        const duration = playerManager.getDurationSec();
-        this.currentTimeSec.set(current ?? 0);
-        this.durationSec.set(duration ?? 0);
-        this.updateSkipAvailabilityForCurrentTime(current ?? 0);
-        this.updateNextUpVisibility(current ?? 0, duration ?? 0);
+      playerManager.addEventListener(EventType.REQUEST_SEEK, () => {
+        this.trackingManager.onSeek(playerManager.getCurrentTimeSec?.());
       });
       playerManager.addEventListener(EventType.PLAYER_LOAD_COMPLETE, () => {
         try {
@@ -1470,13 +748,20 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
           this.pushLog('Failed to activate subtitle track: ' + (error?.message ?? String(error)));
         }
       });
-      context.start();
+      context.start(options);
       this.recordReceiverEvent('Receiver context started');
     } catch (e: any) {
       this.pushLog('Receiver initialize error: ' + (e?.message ?? String(e)));
     }
   }
 
+  /**
+   * Advances the queue to the next item after the current one ends.
+   * Resolves playback for the next item, applies it to a new LoadRequest, and
+   * calls `playerManager.load()` to trigger seamless continuation.
+   *
+   * @param playerManager - CAF PlayerManager instance used to trigger the load.
+   */
   private async onCurrentItemEnded(playerManager: any): Promise<void> {
     const items = this.storedQueueItems;
     const currentIndex = items.findIndex((i: any) => i.id === this.storedActiveItemId);
@@ -1486,47 +771,32 @@ export class ReceiverPageComponent implements OnInit, OnDestroy {
 
     if (!nextItem) {
       this.queueStatus.set('idle');
-      this.nextItemTitle.set(null);
-      this.nextItemThumbnail.set(null);
-      this.clearSkipTimeCodeState();
       this.updateUiState();
       this.pushLog('Queue finished');
       return;
     }
 
-    const resolvedPlayback = await this.resolvePlaybackFromQueueItem(nextItem);
+    const resolvedPlayback = await this.playbackResolver.resolve(nextItem);
     this.receiverError.set(null);
-    this.activeSkipTimeCode = resolvedPlayback.skipTimeCode ?? null;
-    this.lastSkipAvailabilityVisible = null;
-    this.updateSkipAvailabilityForCurrentTime(0);
 
     this.storedActiveItemId = nextItem.id;
     this.title.set(resolvedPlayback.title || nextItem.title || 'Untitled');
     this.subtitle.set(resolvedPlayback.subtitle || nextItem.subtitle || nextItem.url || '');
     this.queueStatus.set('playing');
-    this.showNextUp.set(false);
+    this.updateDebugState({
+      skipTimeCode: resolvedPlayback.skipTimeCode
+        ? `${resolvedPlayback.skipTimeCode.timeCodeType} ${resolvedPlayback.skipTimeCode.startTime}-${resolvedPlayback.skipTimeCode.endTime}s`
+        : 'none',
+    });
 
     if (resolvedPlayback.posterUrl) {
       nextItem.posterUrl = resolvedPlayback.posterUrl;
     }
 
-    const nextNextItem = currentIndex + 2 < items.length ? items[currentIndex + 2] : null;
-    if (nextNextItem) {
-      const nextPreview = await this.resolveQueueItemPreview(nextNextItem);
-      this.nextItemTitle.set(nextPreview.title ?? null);
-      this.nextItemThumbnail.set(nextPreview.thumbnail ?? nextNextItem.posterUrl ?? null);
-      nextNextItem.posterUrl = nextPreview.thumbnail ?? nextNextItem.posterUrl ?? null;
-      this.updateNextUpVisibility();
-    } else {
-      this.nextItemTitle.set(null);
-      this.nextItemThumbnail.set(null);
-      this.showNextUp.set(false);
-    }
-
     try {
       const loadReq = new window.cast.framework.messages.LoadRequestData();
       loadReq.media = new window.cast.framework.messages.MediaInformation();
-      this.applyResolvedPlaybackToLoadRequest(loadReq, resolvedPlayback);
+      this.playbackDataMapper.applyToLoadRequest(loadReq, resolvedPlayback);
       playerManager.load(loadReq);
       this.pushLog('Auto-advancing to: ' + (nextItem.title || nextItem.id));
     } catch (e: any) {

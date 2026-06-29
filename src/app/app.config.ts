@@ -3,7 +3,6 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { BASE_PATH as DISPLAY_AXIS_BASE_PATH } from '../api/display-fe-axis-https/variables';
 import { BASE_PATH as VIDEO_V1_BASE_PATH } from '../api/video-v1/variables';
-
 import { routes } from './app.routes';
 
 declare global {
