@@ -14,18 +14,26 @@
    top: 0;
    right: 0;
    width: 100%;
-   max-width: 500px;
-   height: 100vh;
+   max-width: 360px;
+   max-height: 80vh;
    background: rgba(20, 20, 20, 0.95);
    border-left: 2px solid #007aff;
    color: #fff;
    font-family: monospace;
-   font-size: 11px;
+   font-size: 10px;
    overflow-y: auto;
    overflow-x: hidden;
    z-index: 10000;
    padding: 0;
    box-sizing: border-box;
+ }
+
+ @media (max-width: 1024px) {
+   .receiver-debug {
+     max-width: 320px;
+     max-height: 75vh;
+     font-size: 9px;
+   }
  }
 
  @media (max-width: 768px) {
@@ -37,65 +45,70 @@
      border-left: none;
      border-top: 2px solid #007aff;
      border-bottom: 2px solid #007aff;
+     font-size: 8px;
    }
 
    .receiver-debug-list dt {
-     flex: 0 0 80px;
-     font-size: 9px;
+     flex: 0 0 70px;
+     font-size: 7px;
    }
 
    .receiver-debug-list dd {
-     font-size: 9px;
+     font-size: 7px;
    }
 
    .receiver-debug-card {
-     padding: 6px;
+     padding: 4px;
    }
 
    .receiver-debug-head {
-     padding: 8px;
+     padding: 6px;
    }
 
    .receiver-debug-title {
-     font-size: 12px;
+     font-size: 11px;
    }
 
    .receiver-debug-subtitle {
-     font-size: 9px;
+     font-size: 8px;
    }
  }
 
  @media (max-width: 480px) {
    .receiver-debug {
-     font-size: 10px;
-     max-height: 45vh;
+     font-size: 7px;
+     max-height: 35vh;
    }
 
    .receiver-debug-list dt {
-     flex: 0 0 60px;
-     font-size: 8px;
+     flex: 0 0 50px;
+     font-size: 6px;
    }
 
    .receiver-debug-list dd {
-     font-size: 8px;
+     font-size: 6px;
    }
 
    .receiver-debug-grid {
-     gap: 4px;
-     padding: 4px;
+     gap: 2px;
+     padding: 2px;
    }
 
    .receiver-debug-card {
-     padding: 4px;
+     padding: 3px;
    }
 
    .receiver-debug-card-title {
-     font-size: 10px;
-     margin-bottom: 4px;
+     font-size: 8px;
+     margin-bottom: 2px;
    }
 
    .receiver-debug-head {
-     padding: 6px;
+     padding: 4px;
+   }
+   
+   .receiver-debug-subtitle {
+     font-size: 6px;
    }
 
    .receiver-debug-title {
