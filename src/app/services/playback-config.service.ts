@@ -62,6 +62,7 @@ export class PlaybackConfigService {
     options.customNamespaces = {
       [customNamespace]: (window as any).cast.framework.system.MessageType.JSON,
     };
+    options.disableIdleTimeout = false; // Allow CAF native idle timeout
 
     return options;
   }

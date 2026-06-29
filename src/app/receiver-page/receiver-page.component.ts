@@ -53,8 +53,8 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Semantic version displayed in the debug overlay. */
   protected readonly appVersion = signal('0.0.24');
-  /** Controls whether the debug overlay panel is rendered. */
-  protected readonly showDebugOverlay = signal(true); // Always show for debugging
+  /** Controls whether the custom debug overlay panel is rendered. */
+  protected readonly showDebugOverlay = signal(true); // Show custom debug overlay
   /** Primary content title shown in the receiver UI. */
   protected readonly title = signal('Waiting for content');
   /** Secondary subtitle shown beneath the title. */
@@ -94,6 +94,8 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
     skipTimeCode: null,
   });
 
+  /** CAF player manager instance for programmatic control. */
+  private playerManager: any = null;
   /** All queue items received from the last LOAD message. */
   private storedQueueItems: any[] = [];
   /** ID of the currently active queue item, used to advance to the next item. */
@@ -502,13 +504,12 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
         pageUrl: this.lastPageUrl,
       });
 
-      // Load into CAF player
-      const player = document.querySelector('cast-media-player') as any;
-      if (player?.isConnected && typeof player.load === 'function') {
-        player.load(loadRequest);
+      // Load into CAF player via playerManager
+      if (this.playerManager && typeof this.playerManager.load === 'function') {
+        this.playerManager.load(loadRequest);
         this.pushLog('Dev bridge: Load request sent to CAF player');
       } else {
-        this.pushLog('Dev bridge: CAF player not available');
+        this.pushLog('Dev bridge: CAF player or playerManager not available');
       }
     } catch (error: any) {
       const message = error?.message ?? String(error);
@@ -669,7 +670,8 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private initializeReceiver(): void {
     try {
       const context = window.cast.framework.CastReceiverContext.getInstance();
-      const playerManager = context.getPlayerManager();
+      this.playerManager = context.getPlayerManager();
+      const playerManager = this.playerManager;
       void this.trackingManager.initialize(playerManager);
 
       const playbackConfig = this.playbackConfigService.createPlaybackConfig(this.manifestInfo);
