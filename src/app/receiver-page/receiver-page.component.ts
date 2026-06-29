@@ -14,6 +14,7 @@ import {
   BreakUISuppressor,
   ReceiverLogger,
 } from '../services';
+import { devBridge } from '../../sdk/common/dev-bridge';
 
 /**
  * Main CAF Web Receiver component.
@@ -135,6 +136,7 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
    * 1. Fetches receiver configuration and updates tracking feature flags.
    * 2. Loads the CAF Web Receiver framework script.
    * 3. Wires all CAF event listeners and message interceptors.
+   * 4. Sets up dev bridge for local sender/receiver communication (development only).
    */
   async ngOnInit(): Promise<void> {
     this.pushLog('Receiver booting');
@@ -146,6 +148,7 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.loadReceiverFramework();
       this.pushLog('CAF framework loaded');
       this.initializeReceiver();
+      this.setupDevBridgeListener();
     } catch (err: any) {
       const message = err?.message ?? String(err);
       this.receiverError.set(message);
@@ -255,6 +258,7 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.stopBreakInfoHider();
     this.trackingManager.destroy();
+    devBridge.stopListening();
   }
 
   /** Starts the break UI watcher after the view is initialised. */
@@ -324,6 +328,196 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private hideBreakInfoInShadowRoot(shadowRoot: ShadowRoot): void {
     this.breakUISuppressor.hideBreakUI(shadowRoot);
   }
+
+  /**
+   * Setup listener for dev bridge messages (local sender/receiver communication).
+   * Only used for development without a real Chromecast device.
+   */
+  private setupDevBridgeListener(): void {
+    // Restore any persisted session data on startup
+    this.restorePersistedSession();
+
+    devBridge.startListening((message: any) => {
+      try {
+        if (message.type === 'loadQueue') {
+          this.handleDevBridgeLoadQueue(message.payload);
+        } else if (message.type === 'sessionUpdate') {
+          this.handleDevBridgeSessionUpdate(message.payload);
+        } else if (message.type === 'play') {
+          this.pushLog('Dev bridge: Play command received');
+        } else if (message.type === 'pause') {
+          this.pushLog('Dev bridge: Pause command received');
+        } else if (message.type === 'stop') {
+          this.pushLog('Dev bridge: Stop command received');
+        }
+      } catch (error: any) {
+        const message = error?.message ?? String(error);
+        this.pushLog('Dev bridge error: ' + message);
+      }
+    });
+
+    this.pushLog('Dev bridge listener started');
+  }
+
+  /**
+   * Restore persisted session from localStorage (survives page reloads).
+   */
+  private restorePersistedSession(): void {
+    try {
+      // Check if there's a stored sessionUpdate message in the dev bridge storage
+      // Key format: dr-cast-dev-bridge-from-sender-sessionUpdate
+      const senderSessionMessage = localStorage.getItem('dr-cast-dev-bridge-from-sender-sessionUpdate');
+      if (!senderSessionMessage) return;
+
+      const message = JSON.parse(senderSessionMessage);
+      if (message.type !== 'sessionUpdate' || !message.payload) return;
+
+      const sessionData = message.payload;
+      this.sessionManager.updateSession(sessionData);
+
+      // Update debug display
+      if (sessionData?.auth) {
+        this.updateDebugState({
+          sessionAccessToken: sessionData.auth.accessToken?.substring(0, 20) + '...',
+          sessionIdToken: sessionData.auth.idToken?.substring(0, 20) + '...',
+        });
+      }
+      if (sessionData?.tracking) {
+        this.updateDebugState({
+          sessionAnonymousId: sessionData.tracking.anonymousId,
+        });
+      }
+      if (sessionData?.segments) {
+        this.updateDebugState({
+          sessionSegments: sessionData.segments,
+        });
+      }
+
+      this.pushLog('Restored session from dev bridge storage');
+    } catch (error) {
+      console.error('Error restoring persisted session:', error);
+    }
+  }
+
+  /**
+   * Handle loadQueue message from dev bridge (sender app).
+   * Simulates receiving a queue from the sender by manually triggering LOAD.
+   */
+  private handleDevBridgeLoadQueue(payload: any): void {
+    if (!payload?.queue?.items || !Array.isArray(payload.queue.items)) {
+      this.pushLog('Invalid queue payload from dev bridge');
+      return;
+    }
+
+    const queue = payload.queue;
+    const firstItem = queue.items[0];
+
+    if (!firstItem) {
+      this.pushLog('No items in queue from dev bridge');
+      return;
+    }
+
+    this.pushLog(`Dev bridge: Queue received with ${queue.items.length} item(s)`);
+    this.updateDebugState({ path: firstItem.url });
+
+    // Manually trigger playback for the first item
+    this.triggerManualPlayback(firstItem);
+  }
+
+  /**
+   * Handle session update message from dev bridge.
+   */
+  private handleDevBridgeSessionUpdate(payload: any): void {
+    this.pushLog('Dev bridge: Session update received');
+    this.sessionManager.updateSession(payload);
+
+    if (payload?.auth) {
+      this.updateDebugState({
+        sessionAccessToken: payload.auth.accessToken?.substring(0, 20) + '...',
+        sessionIdToken: payload.auth.idToken?.substring(0, 20) + '...',
+      });
+    }
+    if (payload?.tracking) {
+      this.updateDebugState({
+        sessionAnonymousId: payload.tracking.anonymousId,
+      });
+    }
+    if (payload?.segments) {
+      this.updateDebugState({
+        sessionSegments: payload.segments,
+      });
+    }
+  }
+
+  /**
+   * Manually trigger playback for a queue item (dev bridge / mock transport).
+   */
+  private async triggerManualPlayback(item: any): Promise<void> {
+    try {
+      this.pushLog('Dev bridge: Triggering playback for ' + (item.url ?? 'unknown'));
+
+      // Resolve playback metadata
+      let resolvedPlayback;
+      try {
+        resolvedPlayback = await this.playbackResolver.resolve(item, null);
+        this.pushLog('Dev bridge: Playback resolved successfully');
+      } catch (resolutionError: any) {
+        const message = resolutionError?.message ?? String(resolutionError);
+        this.pushLog('Dev bridge: Playback resolution failed: ' + message);
+        this.receiverError.set('Dev bridge playback failed: ' + message);
+        return;
+      }
+
+      // Create a simulated LOAD request
+      const loadRequest = {
+        autoplay: true,
+        media: {
+          contentId: resolvedPlayback.streamUrl,
+          contentUrl: resolvedPlayback.streamUrl,
+          contentType: resolvedPlayback.mimeType,
+          metadata: {
+            type: 0,
+            metadataType: 0,
+            title: resolvedPlayback.title,
+            subtitle: resolvedPlayback.subtitle,
+            images: resolvedPlayback.posterUrl ? [{ url: resolvedPlayback.posterUrl }] : [],
+          },
+          streamType: 'BUFFERED',
+          tracks: resolvedPlayback.textTracks || [],
+          textTrackStyle: {},
+        },
+        activeTrackIds: [],
+        queue: {
+          items: [{ media: { contentId: resolvedPlayback.streamUrl } }],
+        },
+      };
+
+      // Apply data mapping
+      this.playbackDataMapper.applyToLoadRequest(loadRequest, resolvedPlayback);
+      this.updateDebugState({
+        itemId: resolvedPlayback.itemId,
+        videoUrl: resolvedPlayback.streamUrl,
+        streamUrl: resolvedPlayback.streamUrl,
+        contentType: resolvedPlayback.mimeType,
+        pageUrl: this.lastPageUrl,
+      });
+
+      // Load into CAF player
+      const player = document.querySelector('cast-media-player') as any;
+      if (player?.isConnected && typeof player.load === 'function') {
+        player.load(loadRequest);
+        this.pushLog('Dev bridge: Load request sent to CAF player');
+      } else {
+        this.pushLog('Dev bridge: CAF player not available');
+      }
+    } catch (error: any) {
+      const message = error?.message ?? String(error);
+      this.pushLog('Dev bridge: Manual playback trigger failed: ' + message);
+      this.receiverError.set(message);
+    }
+  }
+
+  private lastPageUrl = '';
 
   /**
    * Derives the UI state from playback and sender-connection signals.
