@@ -126,27 +126,35 @@ function getCastContext(chromeCastWindow: ChromeCastWindow): ReturnType<GoogleCa
 }
 
 async function obtainCastSession(castContext: ReturnType<GoogleCastFramework['CastContext']['getInstance']>): Promise<GoogleCastSession | null> {
+  console.log('[obtainCastSession] Starting...');
   const immediateSession = castContext.getCurrentSession();
+  console.log('[obtainCastSession] Immediate session:', Boolean(immediateSession));
   if (immediateSession) {
     return immediateSession;
   }
 
   try {
+    console.log('[obtainCastSession] Calling requestSession()...');
     await castContext.requestSession();
+    console.log('[obtainCastSession] requestSession() completed');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    console.error('[obtainCastSession] requestSession() failed:', message);
     throw new Error(`Failed to request Cast session: ${message}`);
   }
 
   let session = castContext.getCurrentSession();
+  console.log('[obtainCastSession] Session after requestSession():', Boolean(session));
   if (session) {
     return session;
   }
 
   const retries = [250, 500];
   for (const waitMs of retries) {
+    console.log(`[obtainCastSession] Waiting ${waitMs}ms before retry...`);
     await new Promise((resolve) => setTimeout(resolve, waitMs));
     session = castContext.getCurrentSession();
+    console.log(`[obtainCastSession] Session after ${waitMs}ms wait:`, Boolean(session));
     if (session) {
       return session;
     }
@@ -239,13 +247,19 @@ export class GoogleCastTransport implements CastTransport {
       throw new Error('Google Cast sender SDK requires a browser window.');
     }
 
+    console.log('[GoogleCastTransport.connect] Starting connection...');
+
     await loadScriptOnce(this.scriptUrl);
+    console.log('[GoogleCastTransport.connect] Script loaded');
+
     const isInitialized = await initializeGoogleCastLauncher();
+    console.log('[GoogleCastTransport.connect] Launcher initialized:', isInitialized);
     if (!isInitialized) {
       throw new Error('Google Cast framework did not initialize.');
     }
 
     const castContext = getCastContext(chromeCastWindow);
+    console.log('[GoogleCastTransport.connect] Got cast context:', Boolean(castContext));
     if (!castContext) {
       throw new Error('Google Cast context is not available.');
     }
@@ -259,14 +273,18 @@ export class GoogleCastTransport implements CastTransport {
       // ignore logging errors in environments that restrict URL access
     }
 
+    console.log('[GoogleCastTransport.connect] Calling obtainCastSession...');
     const session = await obtainCastSession(castContext);
+    console.log('[GoogleCastTransport.connect] obtainCastSession returned:', Boolean(session));
     if (!session) {
       throw new Error('No active Cast session was created.');
     }
 
+    console.log('[GoogleCastTransport.connect] Setting up message listener');
     this.ensureCustomNamespaceListener(session);
 
     this.lastQueue = cloneQueueState(state);
+    console.log('[GoogleCastTransport.connect] Connection complete');
   }
 
   async loadQueue(state: CastQueueState): Promise<void> {

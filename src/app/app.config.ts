@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { BASE_PATH as DISPLAY_AXIS_BASE_PATH } from '../api/display-fe-axis-https/variables';
 import { BASE_PATH as VIDEO_V1_BASE_PATH } from '../api/video-v1/variables';
 import { routes } from './app.routes';
+import { environment } from './environments/environment';
 
 declare global {
   var __DISPLAY_AXIS_API_BASE_URL__: string | undefined;
@@ -26,5 +27,8 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(),
     { provide: DISPLAY_AXIS_BASE_PATH, useFactory: resolveDisplayAxisBasePath },
     { provide: VIDEO_V1_BASE_PATH, useFactory: resolveVideoV1BasePath },
+    { provide: 'PAGE_ENDPOINT_BASE_URL', useValue: environment.receiver.pageEndpointBaseUrl },
+    { provide: 'VIDEO_ENDPOINT_BASE_URL', useValue: environment.receiver.videoEndpointBaseUrl },
+    { provide: 'VIDEO_ENDPOINT_DEVICE', useValue: environment.receiver.videoEndpointDevice },
   ]
 };

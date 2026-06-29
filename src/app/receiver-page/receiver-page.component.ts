@@ -37,11 +37,6 @@ import {
   templateUrl: './receiver-page.component.html',
   styleUrl: './receiver-page.component.scss',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  providers: [
-    { provide: 'PAGE_ENDPOINT_BASE_URL', useValue: environment.receiver.pageEndpointBaseUrl },
-    { provide: 'VIDEO_ENDPOINT_BASE_URL', useValue: environment.receiver.videoEndpointBaseUrl },
-    { provide: 'VIDEO_ENDPOINT_DEVICE', useValue: environment.receiver.videoEndpointDevice },
-  ],
 })
 export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** CAF framework script URL for dynamic bootstrapping. */
