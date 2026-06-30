@@ -190,11 +190,11 @@ export class PlaybackResolver {
    * Uses a publicly accessible HLS stream for testing without real API credentials.
    */
   private createMockMediaResponse(): MediaFile[] {
-    // Using a reliable CORS-enabled HLS test stream
-    // This is Sintel trailer from a CORS-enabled CDN
+    // Using an HLS stream from a CORS-enabled public source
+    // This is the Unified Streaming test stream which is known to work
     return [
       {
-        url: 'https://commondatastorage.googleapis.com/gtv-videos-library/sample/sintel.m3u8',
+        url: 'https://test-streams.mux.dev/m3u8/bbbb_crf:22_video_codec:h264_audio_codec:aac.m3u8',
         mimeType: 'application/x-mpegURL',
         bitrate: 5000,
         width: 1920,

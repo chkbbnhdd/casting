@@ -415,7 +415,7 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private initializeTestSession(): void {
     const testSessionData: any = {
       auth: {
-        accessToken: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJzaWQiOiJiMDhiY2E5Yy1jOTU3LTQ0MDUtOTA2ZC1lZTZlMjhhNWJiYTgiLCJzcHIiOiJBdXRoMCIsImF1ZCI6Imh0dHA6Ly9pc2wuZHItbWFzc2l2ZS5jb20vSVNML0FwaS9WMS9EYXRhc2VydmljZSIsInN1YiI6IkNhdGFsb2ciLCJleHAiOjE3ODI3NzIxODUsInVzZXJBY2NvdW50SWQiOiI4YzhhMmQzMjcxODc0MjdlYTNhZDIzMWY0ZDJkYjgxNSIsInVzZXJQcm9maWxlSWQiOiI4YzhhMmQzMjcxODc0MjdlYTNhZDIzMWY0ZDJkYjgxNSIsImVtYWlsIjoiOGM4YTJkMzI3MTg3NDI3ZWEzYWQyMzFmNGQyZGI4MTVAZXhhbXBsZS5jb20iLCJkZXZpY2UiOiJ3ZWJfYnJvd3NlciIsInZhbGlkVW50aWwiOjE3ODUzMjA5ODYsImlhdCI6MTc4MjcyODk4NiwiaXNPcHRlZE91dCI6dHJ1ZSwiaXNDb3VudHJ5VmVyaWZpZWQiOmZhbHNlLCJnZW9Mb2NhdGlvbiI6ImRrIiwiaXNEZXZpY2VBYnJvYWQiOmZhbHNlLCJpc0ZhbGxiYWNrVG9rZW4iOmZhbHNlLCJzdWJzY3JpcHRpb24iOiJSZWdpc3RlcmVkIiwiY29uc2VudCI6WyJzdGF0aXN0aWNzIl0sInNlc3Npb25TdGF0ZSI6bnVsbH0.K3a_Kr7R3HkMRFbwX4Fxh2UOgw-uu7OmVtACRdZJzmAbI70N5SFW4LgZjumYiFK4yuQz81D19W11G-o-NfXW5zTxu0DZnfkj52BDvC2j-kytjmBLyazRlN0XQYCPIIJZ29LqihKmEZZBIAitL26ODV925N-NbiDgf8Ry3EiPu6Bmy5sV_pVM4Vn7FTre_x-gIyKxIQzNTIA_696X6_5kAWKJcYUUiuL8uTE7JooLMLvhHNVDl-yAiko8EuY2aey34DwoYU54c5Jjw0DO6Zr04cVoIp4xKLg8GWICpd3ZGh9uTLQr20m8FvNjdmBe51Ot5omA_WYPfb5E-khcExnEJA',
+        accessToken: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJzaWQiOiJiMDhiY2E5Yy1jOTU3LTQ0MDUtOTA2ZC1lZTZlMjhhNWJiYTgiLCJzcHIiOiJBdXRoMCIsImF1ZCI6Imh0dHA6Ly9pc2wuZHItbWFzc2l2ZS5jb20vSVNML0FwaS9WMS9EYXRhc2VydmljZSIsInN1YiI6IkNhdGFsb2ciLCJleHAiOjE3ODI4NDAwMDIsInVzZXJBY2NvdW50SWQiOiI4YzhhMmQzMjcxODc0MjdlYTNhZDIzMWY0ZDJkYjgxNSIsInVzZXJQcm9maWxlSWQiOiI4YzhhMmQzMjcxODc0MjdlYTNhZDIzMWY0ZDJkYjgxNSIsImVtYWlsIjoiOGM4YTJkMzI3MTg3NDI3ZWEzYWQyMzFmNGQyZGI4MTVAZXhhbXBsZS5jb20iLCJkZXZpY2UiOiJ3ZWJfYnJvd3NlciIsInZhbGlkVW50aWwiOjE3ODUzODg4MDIsImlhdCI6MTc4Mjc5NjgwMiwiaXNPcHRlZE91dCI6dHJ1ZSwiaXNDb3VudHJ5VmVyaWZpZWQiOmZhbHNlLCJnZW9Mb2NhdGlvbiI6ImRrIiwiaXNEZXZpY2VBYnJvYWQiOmZhbHNlLCJpc0ZhbGxiYWNrVG9rZW4iOmZhbHNlLCJzdWJzY3JpcHRpb24iOiJSZWdpc3RlcmVkIiwiY29uc2VudCI6WyJzdGF0aXN0aWNzIl0sInNlc3Npb25TdGF0ZSI6bnVsbH0.bwLT4X0muPjsgAajdZKNh3YX79q1KLDRuggqbDLVmqjkCKp8NhfRvun0ClWTUnk9qvd_5gNHTEilMpTrbqjsbukmzpEU0FXIZV1k4wL6kaWUU2fEABKJ2l3U41Crm1gzF6yZxieosdqYkmzbYGcxAkJlRsjmjxYnbnqV6WGIIUdm7-1amNqWsLMsjF9p_HTctJGVRl_bSj9ZMK7xq9PE7IdRoaSsQipbnolM9WHHhRDJ7OlqyCAupoEvlmCffhR5lBXoLhyhRG4bb4wMDrvSwHJQcqLGBUqfxHM8kqeHTy8rTbT_g-UiDNqMk1wr5YKYyV8R8TzYzpsrDEWjPak9mg',
         idToken: 'test-id-token',
       },
       segments: [],
@@ -431,7 +431,16 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
         sessionIdToken: testSessionData.auth.idToken?.substring(0, 20) + '...',
         sessionAnonymousId: testSessionData.tracking.anonymousId,
       });
-      this.pushLog('Initialized session with real test credentials');
+      this.pushLog('Initialized session with fresh valid credentials');
+      
+      // Auto-trigger playback with test item for development
+      setTimeout(() => {
+        this.triggerManualPlayback({
+          url: '/se/operarejsen-iii_464121',
+          title: 'Operarejsen III',
+          subtitle: 'Test Stream',
+        });
+      }, 500);
     } catch (error) {
       console.error('Error initializing test session:', error);
     }

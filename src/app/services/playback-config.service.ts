@@ -40,6 +40,20 @@ export class PlaybackConfigService {
           ignoreManifestProgramDateTime: true,
         },
       },
+      streaming: {
+        bufferBehind: 30,
+        bufferingGoal: 60,
+        rebufferingGoal: 15,
+      },
+      drm: {
+        retryParameters: {
+          maxAttempts: 3,
+          baseDelay: 100,
+          backoffFactor: 2,
+          maxDelay: 5000,
+          timeout: 0,
+        },
+      },
     };
 
     return playbackConfig;
