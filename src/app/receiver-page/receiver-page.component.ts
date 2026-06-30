@@ -54,7 +54,7 @@ export class ReceiverPageComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Semantic version displayed in the debug overlay. */
   protected readonly appVersion = signal('0.0.24');
   /** Controls whether the custom debug overlay panel is rendered. */
-  protected readonly showDebugOverlay = signal(true); // Show custom debug overlay
+  protected readonly showDebugOverlay = signal(this.showDebugOverlayEnabled);
   /** Primary content title shown in the receiver UI. */
   protected readonly title = signal('Waiting for content');
   /** Secondary subtitle shown beneath the title. */
