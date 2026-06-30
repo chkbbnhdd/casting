@@ -174,11 +174,6 @@ export class PlaybackResolver {
     });
 
     if (!response.ok) {
-      // In development with test tokens, return a mock HLS stream
-      if (response.status === 401 && accessToken === 'test-token-123') {
-        console.log('[PlaybackResolver] Step 4: Using mock HLS stream for development');
-        return this.createMockMediaResponse();
-      }
       throw new Error(`Video request failed with ${response.status}`);
     }
 
@@ -190,11 +185,11 @@ export class PlaybackResolver {
    * Uses a publicly accessible HLS stream for testing without real API credentials.
    */
   private createMockMediaResponse(): MediaFile[] {
-    // Using an HLS stream hosted on a CDN with CORS support
-    // This is Big Buck Bunny from a CORS-enabled source suitable for testing
+    // Using Bitdash's public HLS test stream - Big Buck Bunny
+    // This stream is CORS-enabled and suitable for testing HLS playback
     return [
       {
-        url: 'https://test-streams.mux.dev/x36xhzz/x3xtv.m3u8',
+        url: 'https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0a41b1abbb5.m3u8',
         mimeType: 'application/x-mpegURL',
         bitrate: 5000,
         width: 1920,
