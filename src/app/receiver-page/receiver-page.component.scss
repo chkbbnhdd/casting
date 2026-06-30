@@ -5,8 +5,27 @@
    --logo-image: url("../../../public/dr_logo.svg");
    --logo-size: 50%;
    --splash-image: url("../../../public/splash.png");
-   --splash-size: 100%;
+   --splash-size: 512px;
    --watermark-image: url("../../../public/dr_logo.svg");
+   display: flex;
+   align-items: center;
+   justify-content: center;
+ }
+ 
+ ::part(splash-container) {
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   max-width: 512px;
+   max-height: 512px;
+   width: 512px;
+   height: 512px;
+ }
+ 
+ ::part(splash-image) {
+   max-width: 512px;
+   max-height: 512px;
+   object-fit: contain;
  }
 
  .receiver-debug {
